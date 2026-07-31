@@ -1,0 +1,3 @@
+export {
+  validateWalletAddress,
+} from './validators';
