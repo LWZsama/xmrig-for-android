@@ -1,4 +1,3 @@
-import { merge } from 'lodash/fp';
 import React from 'react';
 import {
   Button,
@@ -10,41 +9,48 @@ import {
   hostnameValidator, passwordValidator, poolValidator, portValidator, usernameValidator,
 } from '../../../../../core/utils/validators';
 import { IConfiguratioPropertiesPool } from '../../../../../core/settings/settings.interface';
+import { updateSimpleConfigurationProperties } from '../../../../../core/settings/update-configuration';
 import PoolListModal from '../../../modals/pool-list.modal';
 
-export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
+const EditSimplePoolCardComponent: React.FC<EditSimpleCardProps> = (
   { setLocalState, localState },
 ) => {
-  const [valid, setValid] = React.useState<boolean>(
-    poolValidator.validate(localState.properties?.pool || {}).error == null,
+  const pool = localState.properties?.pool;
+  const valid = React.useMemo(
+    () => poolValidator.validate(pool || {}).error == null,
+    [pool],
   );
 
-  React.useEffect(() => {
-    setValid(
-      poolValidator.validate(localState.properties?.pool || {}).error == null,
-    );
-  }, [localState.properties]);
-
+  const [hostname, setHostname] = React.useState<string>(pool?.hostname || '');
+  const [port, setPort] = React.useState<string>(pool?.port?.toString() || '');
+  const [username, setUsername] = React.useState<string>(pool?.username || '');
+  const [password, setPassword] = React.useState<string>(pool?.password || '');
   const [showPoolListDialog, setShowPoolListDialog] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    setHostname(pool?.hostname || '');
+    setPort(pool?.port?.toString() || '');
+    setUsername(pool?.username || '');
+    setPassword(pool?.password || '');
+  }, [pool]);
+
+  const updatePool = React.useCallback((changes: Partial<IConfiguratioPropertiesPool>) => {
+    setLocalState((oldState) => updateSimpleConfigurationProperties(oldState, {
+      pool: { ...oldState.properties?.pool, ...changes },
+    }));
+  }, [setLocalState]);
 
   return (
     <>
       <PoolListModal
         onAdd={(pool: IConfiguratioPropertiesPool) => {
-          setLocalState((oldState) => merge(
-            oldState,
-            {
-              properties: {
-                pool,
-              },
-            },
-          ));
+          setLocalState((oldState) => updateSimpleConfigurationProperties(oldState, { pool }));
         }}
         onDismiss={() => setShowPoolListDialog(false)}
         visible={showPoolListDialog}
       />
       <Card
-        enableShadow
+        enableShadow={false}
         selected={!valid}
         selectionOptions={{
           hideIndicator: true,
@@ -71,17 +77,9 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
               <Incubator.TextField
                 placeholder="Hostname / IP"
                 floatingPlaceholder
-                value={localState.properties?.pool?.hostname}
-                onChangeText={(text) => setLocalState((oldState) => merge(
-                  oldState,
-                  {
-                    properties: {
-                      pool: {
-                        hostname: text,
-                      },
-                    },
-                  },
-                ))}
+                value={hostname}
+                onChangeText={setHostname}
+                onBlur={() => updatePool({ hostname })}
                 validate={
                   (value: string) => hostnameValidator
                     .validate(value)
@@ -89,10 +87,10 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
                 }
                 validationMessage={
                   hostnameValidator
-                    .validate(localState.properties?.pool?.hostname)
+                    .validate(hostname)
                     .error?.message
                 }
-                validateOnChange
+                validateOnChange={false}
                 enableErrors
                 floatOnFocus
                 showCharCounter
@@ -106,17 +104,9 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
               <Incubator.TextField
                 placeholder="Port"
                 floatingPlaceholder
-                value={localState.properties?.pool?.port?.toString() || ''}
-                onChangeText={(text) => setLocalState((oldState) => merge(
-                  oldState,
-                  {
-                    properties: {
-                      pool: {
-                        port: text,
-                      },
-                    },
-                  },
-                ))}
+                value={port}
+                onChangeText={setPort}
+                onBlur={() => updatePool({ port: port as unknown as number })}
                 validate={
                   (value: string) => portValidator
                     .validate(value)
@@ -124,10 +114,10 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
                 }
                 validationMessage={
                   portValidator
-                    .validate(localState.properties?.pool?.port)
+                    .validate(port)
                     .error?.message
                 }
-                validateOnChange
+                validateOnChange={false}
                 enableErrors
                 floatOnFocus
                 showCharCounter
@@ -141,17 +131,9 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
           <Incubator.TextField
             placeholder="Username"
             floatingPlaceholder
-            value={localState.properties?.pool?.username}
-            onChangeText={(text) => setLocalState((oldState) => merge(
-              oldState,
-              {
-                properties: {
-                  pool: {
-                    username: text,
-                  },
-                },
-              },
-            ))}
+            value={username}
+            onChangeText={setUsername}
+            onBlur={() => updatePool({ username })}
             validate={
               (value: string) => usernameValidator
                 .validate(value)
@@ -159,10 +141,10 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
             }
             validationMessage={
               usernameValidator
-                .validate(localState.properties?.pool?.username)
+                .validate(username)
                 .error?.message
             }
-            validateOnChange
+            validateOnChange={false}
             enableErrors
             floatOnFocus
             showCharCounter
@@ -173,17 +155,9 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
           <Incubator.TextField
             placeholder="Password"
             floatingPlaceholder
-            value={localState.properties?.pool?.password}
-            onChangeText={(text) => setLocalState((oldState) => merge(
-              oldState,
-              {
-                properties: {
-                  pool: {
-                    password: text,
-                  },
-                },
-              },
-            ))}
+            value={password}
+            onChangeText={setPassword}
+            onBlur={() => updatePool({ password })}
             validate={
               (value: string) => passwordValidator
                 .validate(value)
@@ -191,10 +165,10 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
             }
             validationMessage={
               passwordValidator
-                .validate(localState.properties?.pool?.password)
+                .validate(password)
                 .error?.message
             }
-            validateOnChange
+            validateOnChange={false}
             enableErrors
             floatOnFocus
             showCharCounter
@@ -205,15 +179,9 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
             <Text text80 $textNeutralLight flex column>SSL</Text>
             <Switch
               value={localState.properties?.pool?.sslEnabled}
-              onValueChange={(value) => setLocalState((oldState) => merge(
+              onValueChange={(value) => setLocalState((oldState) => updateSimpleConfigurationProperties(
                 oldState,
-                {
-                  properties: {
-                    pool: {
-                      sslEnabled: value,
-                    },
-                  },
-                },
+                { pool: { ...oldState.properties?.pool, sslEnabled: value } },
               ))}
             />
           </View>
@@ -222,6 +190,11 @@ export const EditSimplePoolCard: React.FC<EditSimpleCardProps> = (
     </>
   );
 };
+
+export const EditSimplePoolCard = React.memo(
+  EditSimplePoolCardComponent,
+  (previous, next) => previous.localState.properties?.pool === next.localState.properties?.pool,
+);
 
 const styles = StyleSheet.create({
   withUnderline: {

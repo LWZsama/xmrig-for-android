@@ -54,7 +54,6 @@ const ConfigurationsScreen: React.FC = () => {
     <View bg-screenBG flex>
       <AddConfigurationsModal
         onAdd={(name, mode) => {
-          console.log('onAdd', name, mode);
           settingsDispatcher({
             type: SettingsActionType.ADD_CONFIGURATION,
             value: {

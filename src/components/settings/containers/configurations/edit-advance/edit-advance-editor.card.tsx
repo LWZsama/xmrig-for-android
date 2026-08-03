@@ -1,37 +1,69 @@
 import React from 'react';
-import { KeyboardAvoidingView, TextInput, Appearance } from 'react-native';
+import { KeyboardAvoidingView, TextInput } from 'react-native';
 import * as JSON5 from 'json5';
 import {
   Card, View,
 } from 'react-native-ui-lib';
-import { AnsiComponent } from 'react-native-ansi-view';
-import { ScrollView } from 'react-native-gesture-handler';
-import { useStyledCode } from '../../../../../core/utils/ansi';
 import { EditAdvanceCardProps } from './index';
+
+const formatConfiguration = (configuration?: string): string => {
+  const data = configuration || '{}';
+  try {
+    return JSON.stringify(JSON5.parse(data), null, 2);
+  } catch {
+    return data;
+  }
+};
 
 export const EditAdvanceEditorCard: React.FC<EditAdvanceCardProps> = (
   { setLocalState, localState },
 ) => {
-  const [code, setCode] = React.useState<string>('{}');
+  const [code, setCode] = React.useState<string>(() => formatConfiguration(localState.config));
+  const latestCode = React.useRef(code);
+  const commitTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { styledCode, cleanCode } = useStyledCode(code, Appearance.getColorScheme() === 'dark');
+  const commitCode = React.useCallback((nextCode: string) => {
+    setLocalState((oldState) => {
+      if (oldState.config === nextCode) {
+        return oldState;
+      }
+      return {
+        ...oldState,
+        config: nextCode,
+      };
+    });
+  }, [setLocalState]);
 
-  React.useEffect(() => {
-    const data = localState.config?.toString() || '{}';
-    try {
-      setCode(JSON.stringify(JSON5.parse(data), null, 2));
-    } catch (er) {
-      console.log(er);
+  const scheduleCommit = React.useCallback((nextCode: string) => {
+    if (commitTimer.current !== null) {
+      clearTimeout(commitTimer.current);
+    }
+    commitTimer.current = setTimeout(() => {
+      commitTimer.current = null;
+      commitCode(nextCode);
+    }, 160);
+  }, [commitCode]);
+
+  const handleChangeText = React.useCallback((nextCode: string) => {
+    latestCode.current = nextCode;
+    setCode(nextCode);
+    scheduleCommit(nextCode);
+  }, [scheduleCommit]);
+
+  const commitImmediately = React.useCallback(() => {
+    if (commitTimer.current !== null) {
+      clearTimeout(commitTimer.current);
+      commitTimer.current = null;
+    }
+    commitCode(latestCode.current);
+  }, [commitCode]);
+
+  React.useEffect(() => () => {
+    if (commitTimer.current !== null) {
+      clearTimeout(commitTimer.current);
+      commitTimer.current = null;
     }
   }, []);
-
-  React.useEffect(() => {
-    setLocalState((oldState) => ({
-      ...oldState,
-      config: cleanCode,
-    }));
-    console.log(cleanCode);
-  }, [code]);
 
   return (
     <Card style={{ flexGrow: 1 }} useSafeArea>
@@ -46,24 +78,28 @@ export const EditAdvanceEditorCard: React.FC<EditAdvanceCardProps> = (
       </View>
 
       <View spread padding-20 paddingT-0 paddingB-20 style={{ flexGrow: 1 }}>
-        <ScrollView contentContainerStyle={{ flex: 1, backgroundColor: 'black', borderRadius: 5 }}>
-          <KeyboardAvoidingView>
-            <TextInput
-              multiline
-              onChangeText={setCode}
-              autoCorrect={false}
-              spellCheck={false}
-              textAlignVertical="top"
-            >
-              <AnsiComponent
-                ansi={styledCode}
-                textStyle={{
-                  color: Appearance.getColorScheme() === 'dark' ? 'white' : 'black',
-                }}
-              />
-            </TextInput>
-          </KeyboardAvoidingView>
-        </ScrollView>
+        <KeyboardAvoidingView style={{ flex: 1 }}>
+          <TextInput
+            style={{
+              flex: 1,
+              minHeight: 240,
+              backgroundColor: 'black',
+              borderRadius: 5,
+              color: 'white',
+              padding: 10,
+              fontFamily: 'monospace',
+            }}
+            multiline
+            value={code}
+            onChangeText={handleChangeText}
+            onBlur={commitImmediately}
+            autoCorrect={false}
+            spellCheck={false}
+            autoCapitalize="none"
+            scrollEnabled
+            textAlignVertical="top"
+          />
+        </KeyboardAvoidingView>
       </View>
     </Card>
   );

@@ -10,7 +10,6 @@ import {
   Incubator,
   Card,
   Assets,
-  AnimatedScanner,
 } from 'react-native-ui-lib';
 import { useMiner } from '../../../core/hooks/use-miner.hook';
 import { SessionDataContext } from '../../../core/session-data/session-data.context';
@@ -35,7 +34,6 @@ export const MinerControl:React.FC<ViewProps> = () => {
   );
 
   const handleStart = React.useCallback(() => {
-    console.log(settings.selectedConfiguration);
     if (!settings.selectedConfiguration) {
       if (_.isEmpty(settings.configurations)) {
         toaster({
@@ -80,7 +78,7 @@ export const MinerControl:React.FC<ViewProps> = () => {
     <Card
       row
       center
-      enableShadow
+      enableShadow={false}
       selected={workingState !== WorkingState.MINING}
       selectionOptions={{
         hideIndicator: true,
@@ -151,13 +149,6 @@ export const MinerControl:React.FC<ViewProps> = () => {
             text65
           />
         </View>
-      )}
-      {!selectedConfiguration && (
-        <AnimatedScanner
-          backgroundColor={Colors.$backgroundWarning}
-          progress={100}
-          duration={3000}
-        />
       )}
     </Card>
   );

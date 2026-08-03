@@ -15,7 +15,6 @@ export const SettingsReducer:Reducer<ISettings, ISettingsReducerAction> = (
   prevState: ISettings,
   action: ISettingsReducerAction,
 ) => {
-  console.log('reducer', action);
   switch (action.type) {
     case SettingsActionType.SET:
       return {

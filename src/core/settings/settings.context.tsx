@@ -87,7 +87,6 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
   const [asyncLoaderState, setAsyncLoaderState] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log('settings effect - SettingsStorageInit');
     SettingsStorageInit(initialState)
       .then((value:ISettings) => {
         const fixValue:ISettings = {
@@ -110,7 +109,6 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
             };
           }),
         };
-        console.log('SET SET', fixValue.configurations[0]);
         settingsDispatcher({
           type: SettingsActionType.SET,
           value: {
@@ -121,11 +119,10 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
         });
         setAsyncLoaderState(true);
       })
-      .catch((e) => console.log(e));
+      .catch((e) => console.error(e));
   }, []);
 
   useEffect(() => {
-    console.log('state changed', settings, 'asyncLoaderState: ', asyncLoaderState);
     if (asyncLoaderState) {
       SettingsStorageSave(settings);
     }

@@ -32,7 +32,7 @@ export const ConfigurationEditSimple:React.FC<ConfigurationEditSimpleProps> = ({
 
   return (
     <Suspense fallback={<LoaderScreen />}>
-      <ScrollView nestedScrollEnabled>
+      <ScrollView nestedScrollEnabled removeClippedSubviews>
         <EditSimpleForkCard localState={localState} setLocalState={setLocalState} />
         <View height={10} />
         <EditSimplePoolCard localState={localState} setLocalState={setLocalState} />

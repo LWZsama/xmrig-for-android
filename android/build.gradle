@@ -2,10 +2,12 @@
 
 buildscript {
     ext {
-        buildToolsVersion = "31.0.0"
+        // API 34 removes Play Protect's "built for an older Android" warning on
+        // current Android releases while keeping the existing RN 0.68 toolchain.
+        buildToolsVersion = "34.0.0"
         minSdkVersion = 29
-        compileSdkVersion = 31
-        targetSdkVersion = 31
+        compileSdkVersion = 34
+        targetSdkVersion = 34
         ndkVersion = "21.4.7075529"
         kotlinVersion = '1.5.0'
     }

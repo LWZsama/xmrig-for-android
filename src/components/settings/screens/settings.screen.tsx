@@ -25,18 +25,19 @@ const actionsButtonDefault: ButtonProps = {
 const SettingsScreen: React.FC = () => {
   const { settings, settingsDispatcher } = React.useContext(SettingsContext);
 
-  const [localSettings, setLocalSettings] = React.useState<ISettings>({ ...settings });
-  React.useEffect(() => setLocalSettings({ ...settings }), []);
+  const [localSettings, setLocalSettings] = React.useState<ISettings>(settings);
+  const [savedSettings, setSavedSettings] = React.useState<ISettings>(settings);
 
-  const [changesCount, setChangesCount] = React.useState<number>(0);
-
+  // Settings are loaded asynchronously. Keep the editor in sync while it is
+  // clean, but do not overwrite edits that are waiting to be saved.
   React.useEffect(() => {
-    if (localSettings !== settings) {
-      setChangesCount((val) => val + 1);
-    } else {
-      setChangesCount(0);
+    if (localSettings === savedSettings) {
+      setLocalSettings(settings);
     }
-  }, [localSettings]);
+    setSavedSettings(settings);
+  }, [localSettings, savedSettings, settings]);
+
+  const hasChanges = localSettings !== savedSettings;
 
   const handleUpdate = (data: Partial<ISettings>) => {
     settingsDispatcher({
@@ -62,17 +63,13 @@ const SettingsScreen: React.FC = () => {
   };
 
   const [actionsVisible, setActionVisible] = React.useState<boolean>(false);
-  const [actionsButtonProps, setActionButtonProps] = React.useState<ButtonProps>({
-    ...actionsButtonDefault,
-  });
-  React.useEffect(() => {
-    if (actionsVisible) {
-      setActionButtonProps({
+  const actionsButtonProps = React.useMemo<ButtonProps>(() => (
+    actionsVisible
+      ? {
         ...actionsButtonDefault,
         backgroundColor: Colors.$backgroundPrimaryHeavy,
-      });
-    } else {
-      setActionButtonProps({
+      }
+      : {
         iconSource: Assets.icons.barsClose,
         iconStyle: {
           width: 15,
@@ -81,9 +78,8 @@ const SettingsScreen: React.FC = () => {
           tintColor: Colors.$iconDefaultLight,
         },
         backgroundColor: Colors.$backgroundPrimaryHeavy,
-      });
-    }
-  }, [actionsVisible]);
+      }
+  ), [actionsVisible]);
 
   return (
     <View bg-screenBG flex>
@@ -105,12 +101,10 @@ const SettingsScreen: React.FC = () => {
           {...actionsButtonProps}
         />
       </View>
-      {changesCount > 0 && (
+      {hasChanges && (
         <View paddingV-10 paddingT-0 center>
           <Text text90 $textDanger>
-            Please save changes (
-            {changesCount}
-            ) using the Menu button
+            Please save changes using the Menu button
           </Text>
         </View>
       )}
@@ -134,16 +128,16 @@ const SettingsScreen: React.FC = () => {
         visible={actionsVisible}
         button={{
           size: Button.sizes.large,
-          disabled: changesCount === 0,
+          disabled: !hasChanges,
           onPress: () => {
             if (localSettings) {
               handleUpdate(localSettings);
-              setChangesCount(0);
+              setSavedSettings(localSettings);
             }
             setActionVisible(false);
           },
           backgroundColor: Colors.$backgroundPrimaryHeavy,
-          label: `Save ${changesCount} Changes`,
+          label: 'Save Changes',
           iconSource: Assets.icons.save,
           iconStyle: {
             display: 'flex',

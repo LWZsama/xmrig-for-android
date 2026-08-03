@@ -24,24 +24,17 @@ const ConfigurationEditScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
 
-  const [changesCount, setChangesCount] = React.useState<number>(0);
-
   const { settings, settingsDispatcher } = React.useContext(SettingsContext);
+  const configurationId = (route.params as { id?: string } | undefined)?.id;
   const savedConfiguration = React.useMemo(() => settings.configurations.find(
-    (item) => item.id === (route.params as any).id,
-  ), [settings.configurations]);
-  const [configuration, setConfiguration] = React.useState<Configuration>();
+    (item) => item.id === configurationId,
+  ), [settings.configurations, configurationId]);
+  const [configuration, setConfiguration] = React.useState<Configuration | undefined>(savedConfiguration);
   React.useEffect(() => {
     setConfiguration(savedConfiguration);
-  }, [route.params]);
+  }, [savedConfiguration]);
 
-  React.useEffect(() => {
-    if (configuration !== savedConfiguration) {
-      setChangesCount((val) => val + 1);
-    } else {
-      setChangesCount(0);
-    }
-  }, [configuration]);
+  const hasChanges = configuration !== undefined && configuration !== savedConfiguration;
 
   const handleUpdate = (data: Configuration) => {
     settingsDispatcher({
@@ -52,16 +45,10 @@ const ConfigurationEditScreen = () => {
   };
 
   const [actionsVisible, setActionVisible] = React.useState<boolean>(false);
-  const [actionsButtonProps, setActionButtonProps] = React.useState<ButtonProps>({
-    ...actionsButtonDefault,
-  });
-  React.useEffect(() => {
-    if (actionsVisible) {
-      setActionButtonProps({
-        ...actionsButtonDefault,
-      });
-    } else {
-      setActionButtonProps({
+  const actionsButtonProps = React.useMemo<ButtonProps>(() => (
+    actionsVisible
+      ? { ...actionsButtonDefault }
+      : {
         iconSource: Assets.icons.barsClose,
         iconStyle: {
           width: 15,
@@ -69,9 +56,8 @@ const ConfigurationEditScreen = () => {
           margin: 8,
           tintColor: Colors.$iconDefaultLight,
         },
-      });
-    }
-  }, [actionsVisible]);
+      }
+  ), [actionsVisible]);
 
   return (
     <View bg-screenBG flex>
@@ -94,12 +80,10 @@ const ConfigurationEditScreen = () => {
           {...actionsButtonProps}
         />
       </View>
-      {changesCount > 0 && (
+      {hasChanges && (
         <View padding-10 paddingT-0 center>
           <Text text90 $textDanger>
-            Please save changes (
-            {changesCount}
-            ) using the Menu button
+            Please save changes using the Menu button
           </Text>
         </View>
       )}
@@ -132,16 +116,15 @@ const ConfigurationEditScreen = () => {
         visible={actionsVisible}
         button={{
           size: Button.sizes.large,
-          disabled: changesCount === 0,
+          disabled: !hasChanges,
           onPress: () => {
             if (configuration) {
               handleUpdate(configuration);
-              setChangesCount(0);
             }
             setActionVisible(false);
           },
           backgroundColor: Colors.$backgroundPrimaryHeavy,
-          label: `Save ${changesCount} Changes`,
+          label: 'Save Changes',
           iconSource: Assets.icons.save,
           iconStyle: {
             display: 'flex',

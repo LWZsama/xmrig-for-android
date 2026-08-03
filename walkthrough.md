@@ -2,6 +2,12 @@
 
 本次清理后，仓库只保留 `Watch XMRig Release` 和 `Build & Release` 两个 GitHub Actions workflow。
 
+## Android 兼容性
+
+- Android 工程现在使用 `compileSdkVersion/targetSdkVersion 34`，避免新 Android 设备上的 Play Protect 旧目标 API 提示。
+- XMRig 前台服务声明为 Android 14 要求的 `specialUse` 类型，并传入对应的运行时服务类型。
+- Android 13 及以上会请求 `POST_NOTIFICATIONS`，保证前台挖矿状态通知能够显示。
+
 ## Watch XMRig Release
 
 - Runner：`ubuntu-slim`，适合只做版本观察的轻量任务。

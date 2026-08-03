@@ -9,6 +9,12 @@
 - `Watch XMRig Release`：使用 `ubuntu-slim`，只执行 API/tag 检查；每天运行一次，也支持手动运行。
 - `Build & Release`：只响应 `repository_dispatch` 或手动运行，不包含 cron/push 自动触发；负责更新版本、构建 native 库、签名 APK/AAB、持久化成功更新并创建 Release。
 
+## Android 兼容性
+
+应用使用 Android API 34 编译并 target API 34。项目原先 target API 31，在较新的 Android 设备上会被 Google Play Protect 判断为兼容性过低并显示“针对旧版 Android 开发”的安装提示。API 34 同时满足当前 Android 设备的兼容性阈值，并保留现有 React Native 0.68 构建工具链。
+
+由于 Android 14 要求前台服务声明类型，XMRig 的长期运行服务声明为 `specialUse`，并在服务启动时传入对应类型；Android 13 及以上也声明并请求通知权限，以确保挖矿状态通知可见。
+
 ## Watch 流程
 
 1. 查询官方 XMRig 最新 release 和 MoneroOcean 最新 tag。

@@ -130,7 +130,6 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
     fun onPowerEvent(event: PowerEvent) {
-        Log.d(this.name, "event name: " + event.javaClass.simpleName)
         val payload = Arguments.createMap()
         payload.putString("action", event.action.toString())
         if (event.value != null) {

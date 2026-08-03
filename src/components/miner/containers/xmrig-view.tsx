@@ -14,7 +14,7 @@ import {
 } from 'react-native-ui-lib';
 import { IMinerSummary } from '../../../core/hooks';
 import { MinerCard } from '../components/miner-card.component';
-import { IHashrateHistory } from '../../../core/session-data/session-data.interface';
+import { IHashrateHistory, WorkingState } from '../../../core/session-data/session-data.interface';
 
 const screen = Dimensions.get('screen');
 
@@ -28,7 +28,7 @@ type XMRigViewProps = ViewProps & {
     workingState: string;
 }
 
-export const XMRigView:React.FC<XMRigViewProps> = ({
+const XMRigViewComponent:React.FC<XMRigViewProps> = ({
   hashrateHistory,
   minerData,
   workingState,
@@ -49,58 +49,73 @@ export const XMRigView:React.FC<XMRigViewProps> = ({
       },
     );
     return () => subscription?.remove();
-  });
+  }, []);
 
-  const HashrateChart = React.useCallback(() => (
-    <View flex>
-      <VictoryArea
-        groupComponent={<VictoryClipContainer clipPadding={{ top: 10, right: 10, left: 10 }} />}
-        padding={{
-          top: 10,
-          bottom: 0,
-        }}
-        height={100}
-        data={[0, ..._.takeRight(hashrateHistory.historyCurrent || [], 10), 0]}
-        style={{
-          data: {
-            fill: Colors.$backgroundPrimaryLight,
-            stroke: Colors.$outlinePrimary,
-            strokeWidth: 2,
-          },
-        }}
-        interpolation="natural"
-        standalone
-      />
-    </View>
-  ), [hashrateHistory]);
+  // Victory creates a fairly large SVG tree. There is no useful chart to show
+  // while the miner is idle, so keep the native layout but avoid mounting SVG
+  // graphs until real samples arrive.
+  const hashrateDataAvailable = workingState !== WorkingState.NOT_WORKING;
 
-  const SmallHashrateChart:FC<SmallHashrateChartProps> = useCallback((
-    { hashrateHistoryData = [] },
-  ) => (
-    <View flex right>
-      <VictoryChart
-        height={50}
-        width={100}
-        padding={{
-          top: 5,
-          bottom: 0,
-        }}
-      >
+  const HashrateChart = React.useCallback(() => {
+    if (!hashrateDataAvailable) {
+      return <View flex height={100} />;
+    }
+    return (
+      <View flex>
         <VictoryArea
-          groupComponent={<VictoryClipContainer clipPadding={{ top: 5, right: 0 }} />}
-          data={hashrateHistoryData}
+          groupComponent={<VictoryClipContainer clipPadding={{ top: 10, right: 10, left: 10 }} />}
+          padding={{
+            top: 10,
+            bottom: 0,
+          }}
+          height={100}
+          data={[0, ..._.takeRight(hashrateHistory.historyCurrent || [], 10), 0]}
           style={{
             data: {
               fill: Colors.$backgroundPrimaryLight,
               stroke: Colors.$outlinePrimary,
-              strokeWidth: 1,
+              strokeWidth: 2,
             },
           }}
           interpolation="natural"
+          standalone
         />
-      </VictoryChart>
-    </View>
-  ), [hashrateHistory]);
+      </View>
+    );
+  }, [hashrateDataAvailable, hashrateHistory.historyCurrent]);
+
+  const SmallHashrateChart:FC<SmallHashrateChartProps> = useCallback((
+    { hashrateHistoryData = [] },
+  ) => {
+    if (!hashrateDataAvailable) {
+      return <View flex height={50} />;
+    }
+    return (
+      <View flex right>
+        <VictoryChart
+          height={50}
+          width={100}
+          padding={{
+            top: 5,
+            bottom: 0,
+          }}
+        >
+          <VictoryArea
+            groupComponent={<VictoryClipContainer clipPadding={{ top: 5, right: 0 }} />}
+            data={hashrateHistoryData}
+            style={{
+              data: {
+                fill: Colors.$backgroundPrimaryLight,
+                stroke: Colors.$outlinePrimary,
+                strokeWidth: 1,
+              },
+            }}
+            interpolation="natural"
+          />
+        </VictoryChart>
+      </View>
+    );
+  }, [hashrateDataAvailable]);
 
   const GridCard = React.useCallback(({ title, text, children }) => (
     <MinerCard title={title}>
@@ -127,9 +142,6 @@ export const XMRigView:React.FC<XMRigViewProps> = ({
       {children}
     </MinerCard>
   ), []);
-
-  React.useEffect(() => console.log(minerData?.results), [minerData?.results]);
-  React.useEffect(() => console.log(minerData?.connection), [minerData?.connection]);
 
   const RenderCPUGrid = React.useCallback(() => (
     <GridView
@@ -245,7 +257,7 @@ export const XMRigView:React.FC<XMRigViewProps> = ({
       numColumns={4}
       viewWidth={dimensions.width}
     />
-  ), [minerData, dimensions.width]);
+  ), [hashrateDataAvailable, hashrateHistory.history10s, hashrateHistory.history60s, hashrateHistory.history15m, hashrateHistory.historyMax, dimensions.width]);
 
   const RenderModeAlgoGrid = React.useCallback(() => (
     <GridView
@@ -268,7 +280,7 @@ export const XMRigView:React.FC<XMRigViewProps> = ({
       numColumns={2}
       viewWidth={dimensions.width}
     />
-  ), [minerData, dimensions.width]);
+  ), [minerData, workingState, dimensions.width]);
 
   return (
     <>
@@ -323,6 +335,17 @@ export const XMRigView:React.FC<XMRigViewProps> = ({
     </>
   );
 };
+
+export const XMRigView = React.memo(
+  XMRigViewComponent,
+  (previous, next) => previous.minerData === next.minerData
+    && previous.workingState === next.workingState
+    && previous.hashrateHistory.historyCurrent === next.hashrateHistory.historyCurrent
+    && previous.hashrateHistory.history10s === next.hashrateHistory.history10s
+    && previous.hashrateHistory.history60s === next.hashrateHistory.history60s
+    && previous.hashrateHistory.history15m === next.hashrateHistory.history15m
+    && previous.hashrateHistory.historyMax === next.hashrateHistory.historyMax,
+);
 
 const styles = StyleSheet.create({
   sectionDiv: {

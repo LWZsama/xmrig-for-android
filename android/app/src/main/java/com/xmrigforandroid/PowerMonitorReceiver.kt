@@ -16,7 +16,6 @@ import android.os.BatteryManager
 class PowerMonitorReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d(this.javaClass.name, "PowerMonitorReceiver -> onReceive")
         val action = intent.action
 
         when (action) {
@@ -37,7 +36,6 @@ class PowerMonitorReceiver : BroadcastReceiver() {
                 EventBus.getDefault().post(PowerEvent(PowerEventAction.POWER_DISCONNECTED))
             }
             Intent.ACTION_BATTERY_CHANGED -> {
-                Log.d(this.javaClass.name, "ACTION_BATTERY_CHANGED")
                 val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                 val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
 
@@ -47,7 +45,7 @@ class PowerMonitorReceiver : BroadcastReceiver() {
                 }
             }
             else -> {
-                print("Something elese")
+                Unit
             }
         }
     }

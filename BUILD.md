@@ -5,7 +5,7 @@
 * JDK 17
 * Node.js 20 and Yarn
 * Python 3 with `setuptools`
-* Android SDK Platform/Build Tools 31
+* Android SDK Platform/Build Tools 34
 * Android NDK `r21e` (`21.4.7075529`)
 * CMake and GNU Make
 * [React Native Development Environment](https://reactnative.dev/docs/environment-setup)

@@ -91,7 +91,7 @@ export const useMinerSummary = () => {
       try {
         setState(json5.parse(event.data));
       } catch (er) {
-        console.log(er);
+        console.error(er);
       }
     });
 
