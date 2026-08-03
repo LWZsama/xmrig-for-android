@@ -22,7 +22,7 @@
 - dispatch payload 传入的上游版本会写入 fetch 脚本，并递增应用 patch 版本。
 - 构建成功后持久化版本、四 ABI native `.so` 和版本同步文件，提交信息包含 `[skip ci]`。
 - 使用稳定 keystore 签名 AAB/APK，验证签名后创建 GitHub Release。
-- release tag 以应用版本命名，例如 `v0.1.4`；已存在的 tag 会使流程失败，避免覆盖错误版本。
+- 构建前会检查应用版本对应的 release tag；如果 tag 已存在，会自动递增 patch 版本后再构建，避免浪费 native/Gradle 构建时间。Release 阶段仍保留一次最终冲突检查，防止并发情况下覆盖已有 tag。
 
 ## 缓存策略
 

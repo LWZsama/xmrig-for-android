@@ -25,11 +25,11 @@
 ## Build & Release 流程
 
 1. 读取 dispatch payload；手动运行时也可通过 workflow inputs 指定 tag。
-2. 更新两个 fetch 脚本并递增应用 patch 版本。
+2. 更新两个 fetch 脚本并递增应用 patch 版本；如果当前版本的 release tag 已存在，也会在构建前自动递增 patch 版本。
 3. 执行 `make all`，由 native fetch/build 脚本验证 patch 并构建四种 ABI。
 4. 使用稳定 release keystore 构建签名 AAB 和 universal APK，验证两者签名。
 5. 将版本文件、fetch 脚本和 native `.so` 产物提交回默认分支，提交信息包含 `[skip ci]`。
-6. 使用当前版本创建 GitHub Release。
+6. 使用当前版本创建 GitHub Release，发布前保留最终 tag 冲突保护。
 
 ## 构建缓存
 

@@ -143,17 +143,32 @@ jobs:
           CURRENT_XMRIG_MO="$(sed -n 's/^version="\([^"]*\)"/\1/p' xmrig/lib-builder/script/xmrig-mo-fetch.sh)"
           TARGET_XMRIG="${REQUESTED_XMRIG:-$CURRENT_XMRIG}"
           TARGET_XMRIG_MO="${REQUESTED_XMRIG_MO:-$CURRENT_XMRIG_MO}"
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          CURRENT_TAG="v${CURRENT_VERSION}"
+
+          if git ls-remote --exit-code origin "refs/tags/${CURRENT_TAG}" >/dev/null 2>&1; then
+            RELEASE_TAG_EXISTS=1
+            echo "Release tag ${CURRENT_TAG} already exists; reserving the next patch version before building."
+          else
+            TAG_CHECK_STATUS=$?
+            if [[ "$TAG_CHECK_STATUS" -ne 2 ]]; then
+              echo "Unable to verify whether release tag ${CURRENT_TAG} exists (git ls-remote exit ${TAG_CHECK_STATUS})." >&2
+              exit "$TAG_CHECK_STATUS"
+            fi
+            RELEASE_TAG_EXISTS=0
+          fi
 
           [[ "$TARGET_XMRIG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           [[ "$TARGET_XMRIG_MO" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[[:alnum:].-]+)?$ ]]
 
-          python3 - "$CURRENT_XMRIG" "$CURRENT_XMRIG_MO" "$TARGET_XMRIG" "$TARGET_XMRIG_MO" <<'PY'
+          python3 - "$CURRENT_XMRIG" "$CURRENT_XMRIG_MO" "$TARGET_XMRIG" "$TARGET_XMRIG_MO" "$RELEASE_TAG_EXISTS" <<'PY'
           import re
           import sys
           from pathlib import Path
 
-          current_xmrig, current_xmrig_mo, target_xmrig, target_xmrig_mo = sys.argv[1:]
-          if target_xmrig != current_xmrig or target_xmrig_mo != current_xmrig_mo:
+          current_xmrig, current_xmrig_mo, target_xmrig, target_xmrig_mo, release_tag_exists = sys.argv[1:]
+          upstream_changed = target_xmrig != current_xmrig or target_xmrig_mo != current_xmrig_mo
+          if upstream_changed or release_tag_exists == "1":
               version_path = Path("version.properties")
               version_text = version_path.read_text()
               major = int(re.search(r"^majorVersion=(\d+)$", version_text, re.MULTILINE).group(1))
@@ -165,7 +180,10 @@ jobs:
               version_text = re.sub(r"^minorVersion=\d+$", f"minorVersion={minor}", version_text, flags=re.MULTILINE)
               version_text = re.sub(r"^patchVersion=\d+$", f"patchVersion={patch}", version_text, flags=re.MULTILINE)
               version_path.write_text(version_text)
+              if release_tag_exists == "1":
+                  print("Existing release tag detected; bumped the app patch version before building.")
 
+          if upstream_changed:
               for filename, version in [
                   ("xmrig/lib-builder/script/xmrig-fetch.sh", target_xmrig),
                   ("xmrig/lib-builder/script/xmrig-mo-fetch.sh", target_xmrig_mo),

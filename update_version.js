@@ -10,7 +10,7 @@ const newPackage = {
   version: `${values.getInt('majorVersion')}.${values.getInt('minorVersion')}.${values.getInt('patchVersion')}`,
 };
 
-fs.writeFileSync('./package.json', JSON.stringify(newPackage, null, 2));
+fs.writeFileSync('./package.json', `${JSON.stringify(newPackage, null, 2)}\n`);
 
 const versionTS = `export const version = '${values.getInt('majorVersion')}.${values.getInt('minorVersion')}.${values.getInt('patchVersion')}';\n`;
 
