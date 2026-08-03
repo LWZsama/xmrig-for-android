@@ -28,6 +28,18 @@ type XMRigViewProps = ViewProps & {
     workingState: string;
 }
 
+const formatHashrate = (value: unknown): string => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return '0';
+  }
+  try {
+    return hashrateToString(numericValue, true);
+  } catch {
+    return '0';
+  }
+};
+
 const XMRigViewComponent:React.FC<XMRigViewProps> = ({
   hashrateHistory,
   minerData,
@@ -54,7 +66,8 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
   // Victory creates a fairly large SVG tree. There is no useful chart to show
   // while the miner is idle, so keep the native layout but avoid mounting SVG
   // graphs until real samples arrive.
-  const hashrateDataAvailable = workingState !== WorkingState.NOT_WORKING;
+  const hashrateDataAvailable = workingState !== WorkingState.NOT_WORKING
+    && minerData !== null;
 
   const HashrateChart = React.useCallback(() => {
     if (!hashrateDataAvailable) {
@@ -148,20 +161,20 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
       items={[
         {
           renderCustomItem: () => (
-            <GridCard title="Brand" text={minerData?.cpu.brand || 'N/A'}>
+            <GridCard title="Brand" text={minerData?.cpu?.brand || 'N/A'}>
               <Card.Image source={Assets.icons.cpu} height={25} width={25} style={{ position: 'absolute', right: 10, top: 10 }} tintColor={Colors.$iconNeutral} />
             </GridCard>
           ),
         },
         {
           renderCustomItem: () => (
-            <GridCard title="Cores" text={minerData?.cpu.cores || 'N/A'}>
+            <GridCard title="Cores" text={minerData?.cpu?.cores || 'N/A'}>
               <Card.Image source={Assets.icons.cpuCore} height={25} width={25} style={{ position: 'absolute', right: 10, top: 10 }} tintColor={Colors.$iconNeutral} />
             </GridCard>
           ),
         },
-        { renderCustomItem: () => <GridCard title="Threads" text={minerData?.cpu.threads || 'N/A'} /> },
-        { renderCustomItem: () => <GridCard title="Arch" text={minerData?.cpu.arch || 'N/A'} /> },
+        { renderCustomItem: () => <GridCard title="Threads" text={minerData?.cpu?.threads || 'N/A'} /> },
+        { renderCustomItem: () => <GridCard title="Arch" text={minerData?.cpu?.arch || 'N/A'} /> },
       ]}
       viewWidth={dimensions.width}
       numColumns={2}
@@ -171,9 +184,9 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
   const RenderSharesGrid = React.useCallback(() => (
     <GridView
       items={[
-        { renderCustomItem: () => <GridCard title="Accepted" text={minerData?.connection.accepted || 0} /> },
-        { renderCustomItem: () => <GridCard title="Rejected" text={minerData?.connection.rejected || 0} /> },
-        { renderCustomItem: () => <GridCard title="Total" text={(minerData?.connection.accepted || 0) + (minerData?.connection.rejected || 0)} /> },
+        { renderCustomItem: () => <GridCard title="Accepted" text={minerData?.connection?.accepted || 0} /> },
+        { renderCustomItem: () => <GridCard title="Rejected" text={minerData?.connection?.rejected || 0} /> },
+        { renderCustomItem: () => <GridCard title="Total" text={(minerData?.connection?.accepted || 0) + (minerData?.connection?.rejected || 0)} /> },
       ]}
       numColumns={3}
       viewWidth={dimensions.width}
@@ -183,8 +196,8 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
   const RenderSharesMoreGrid = React.useCallback(() => (
     <GridView
       items={[
-        { renderCustomItem: () => <GridCard title="Difficulty" text={minerData?.results.diff_current || 'N/A'} /> },
-        { renderCustomItem: () => <GridCard title="Total Hashes" text={hashrateToString(minerData?.results.hashes_total || 0, true)} /> },
+        { renderCustomItem: () => <GridCard title="Difficulty" text={minerData?.results?.diff_current || 'N/A'} /> },
+        { renderCustomItem: () => <GridCard title="Total Hashes" text={formatHashrate(minerData?.results?.hashes_total)} /> },
       ]}
       numColumns={2}
       viewWidth={dimensions.width}
@@ -196,14 +209,14 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
       items={[
         {
           renderCustomItem: () => (
-            <GridCard title="Free Mem" text={prettyBytes(minerData?.resources.memory.free || 0)}>
+            <GridCard title="Free Mem" text={prettyBytes(minerData?.resources?.memory?.free || 0)}>
               <Card.Image source={Assets.icons.memory} height={25} width={28} style={{ position: 'absolute', right: 10, top: 10 }} tintColor={Colors.$iconNeutral} />
             </GridCard>
           ),
         },
         {
           renderCustomItem: () => (
-            <GridCard title="Res. Mem" text={prettyBytes(minerData?.resources.memory.resident_set_memory || 0)}>
+            <GridCard title="Res. Mem" text={prettyBytes(minerData?.resources?.memory?.resident_set_memory || 0)}>
               <Card.Image source={Assets.icons.memory} height={25} width={28} style={{ position: 'absolute', right: 10, top: 10 }} tintColor={Colors.$iconNeutral} />
             </GridCard>
           ),
@@ -219,7 +232,7 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
       items={[
         {
           renderCustomItem: () => (
-            <GridHashrateCard title="10s" subTitle={`${hashrateToString(_.last(hashrateHistory.history10s) || 0, true)}/s`}>
+            <GridHashrateCard title="10s" subTitle={`${formatHashrate(_.last(hashrateHistory.history10s))}/s`}>
               <SmallHashrateChart
                 hashrateHistoryData={hashrateHistory.history10s}
               />
@@ -228,7 +241,7 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
         },
         {
           renderCustomItem: () => (
-            <GridHashrateCard title="60s" subTitle={`${hashrateToString(_.last(hashrateHistory.history60s) || 0, true)}/s`}>
+            <GridHashrateCard title="60s" subTitle={`${formatHashrate(_.last(hashrateHistory.history60s))}/s`}>
               <SmallHashrateChart
                 hashrateHistoryData={hashrateHistory.history60s}
               />
@@ -237,7 +250,7 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
         },
         {
           renderCustomItem: () => (
-            <GridHashrateCard title="15m" subTitle={`${hashrateToString(_.last(hashrateHistory.history15m) || 0, true)}/s`}>
+            <GridHashrateCard title="15m" subTitle={`${formatHashrate(_.last(hashrateHistory.history15m))}/s`}>
               <SmallHashrateChart
                 hashrateHistoryData={hashrateHistory.history15m}
               />
@@ -246,7 +259,7 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
         },
         {
           renderCustomItem: () => (
-            <GridHashrateCard title="max" subTitle={`${hashrateToString(_.last(hashrateHistory.historyMax) || 0, true)}/s`}>
+            <GridHashrateCard title="max" subTitle={`${formatHashrate(_.last(hashrateHistory.historyMax))}/s`}>
               <SmallHashrateChart
                 hashrateHistoryData={hashrateHistory.historyMax}
               />
@@ -297,7 +310,7 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
         <View flex row paddingT-10 style={{ zIndex: 0 }}>
           <MinerCard
             title="Live Hashrate"
-            subTitle={`${hashrateToString(_.last(hashrateHistory.historyCurrent) || 0, true)}/s`}
+            subTitle={`${formatHashrate(_.last(hashrateHistory.historyCurrent))}/s`}
             cardProps={{ row: true, center: true }}
             badgeProps={{ size: 20 }}
           >
@@ -336,8 +349,38 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
   );
 };
 
+type XMRigViewErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class XMRigViewErrorBoundary extends React.Component<
+  XMRigViewProps,
+  XMRigViewErrorBoundaryState
+> {
+  public state: XMRigViewErrorBoundaryState = { hasError: false };
+
+  public static getDerivedStateFromError(): XMRigViewErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  public componentDidCatch(error: Error) {
+    console.error('Miner statistics failed to render', error);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <View flex padding-20>
+          <Text text70>Miner statistics are temporarily unavailable.</Text>
+        </View>
+      );
+    }
+    return <XMRigViewComponent {...this.props} />;
+  }
+}
+
 export const XMRigView = React.memo(
-  XMRigViewComponent,
+  (props: XMRigViewProps) => <XMRigViewErrorBoundary {...props} />,
   (previous, next) => previous.minerData === next.minerData
     && previous.workingState === next.workingState
     && previous.hashrateHistory.historyCurrent === next.hashrateHistory.historyCurrent

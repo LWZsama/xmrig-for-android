@@ -132,20 +132,26 @@ public class MiningService extends Service {
     public synchronized void startMining(String configPath, String xmrigFork) {
         stopMining();
 
-        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
-                "XMRigForAndroid::MinerWakeLock");
-        wakeLock.acquire();
-
-        Log.i(LOG_TAG, "starting...");
-
-        String xmrigBin = XMRigFork.MONEROOCEAN.toString().equals(xmrigFork)
-                ? "libxmrig-mo.so" : "libxmrig.so";
-        File xmrigFile = new File(getApplicationInfo().nativeLibraryDir, xmrigBin);
-
-        Log.d(LOG_TAG, "libxmrig: " + xmrigFile.getAbsolutePath());
-
         try {
+            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+            if (powerManager == null) {
+                throw new IllegalStateException("Power manager is unavailable");
+            }
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                    "XMRigForAndroid::MinerWakeLock");
+            wakeLock.acquire();
+
+            Log.i(LOG_TAG, "starting...");
+
+            String xmrigBin = XMRigFork.MONEROOCEAN.toString().equals(xmrigFork)
+                    ? "libxmrig-mo.so" : "libxmrig.so";
+            File xmrigFile = new File(getApplicationInfo().nativeLibraryDir, xmrigBin);
+
+            Log.d(LOG_TAG, "libxmrig: " + xmrigFile.getAbsolutePath());
+            if (!xmrigFile.isFile()) {
+                throw new IOException("XMRig binary is missing: " + xmrigFile.getAbsolutePath());
+            }
+
             String[] args = {
                     xmrigFile.getAbsolutePath(),
                     "-c", configPath,
@@ -170,7 +176,12 @@ public class MiningService extends Service {
                     processExitDetector = null;
                     releaseWakeLock();
                 }
+                int exitCode = finishedProcess.exitValue();
                 EventBus.getDefault().post(new MinerStopEvent());
+                if (exitCode != 0) {
+                    EventBus.getDefault().post(new StdoutEvent(
+                            "XMRig stopped with exit code " + exitCode));
+                }
             });
             processExitDetector.start();
 
@@ -181,6 +192,9 @@ public class MiningService extends Service {
 
         } catch (Exception e) {
             Log.e(LOG_TAG, "exception:", e);
+            EventBus.getDefault().post(new StdoutEvent(
+                    "XMRig failed to start: "
+                            + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())));
             process = null;
             releaseWakeLock();
         }

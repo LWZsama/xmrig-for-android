@@ -81,11 +81,16 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
             if (!isMining)  {
                 return
             }
-            val payload = Arguments.createMap()
-            payload.putString("config", configBuilder.readConfigFromDisk())
-            reactApplicationContext
-                    .getJSModule(RCTDeviceEventEmitter::class.java)
-                    .emit("onConfigUpdate", payload)
+            try {
+                val payload = Arguments.createMap()
+                payload.putString("config", configBuilder.readConfigFromDisk())
+                emit("onConfigUpdate", payload)
+            } catch (e: Exception) {
+                // XMRig can rewrite config.json while it is being started.
+                // A MODIFY event may arrive while the file is still being
+                // written; never let that background callback kill the app.
+                Log.w(this@XMRigForAndroid.name, "Unable to read updated config", e)
+            }
         }
     }
 
@@ -95,37 +100,39 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
         val payload = Arguments.createMap()
         val strArr = arrayOf(event.value)
         payload.putArray("log", Arguments.fromArray(strArr))
-        reactApplicationContext
-                .getJSModule(RCTDeviceEventEmitter::class.java)
-                .emit("onLog", payload)
+        emit("onLog", payload)
     }
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
     fun onMinerStartEvent(event: MinerStartEvent) {
         Log.d(this.name, "event name: " + event.javaClass.simpleName)
         this.isMining = true
-        xmrigAPIService?.startSummaryUpdates()
+        try {
+            xmrigAPIService?.startSummaryUpdates()
+        } catch (e: Exception) {
+            Log.w(this.name, "Unable to start summary updates", e)
+        }
         startThermalMonitoring()
 
         val payload = Arguments.createMap()
         payload.putBoolean("isWorking", true)
-        reactApplicationContext
-                .getJSModule(RCTDeviceEventEmitter::class.java)
-                .emit("onStatusChange", payload)
+        emit("onStatusChange", payload)
     }
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
     fun onMinerStopEvent(event: MinerStopEvent) {
         Log.d(this.name, "event name: " + event.javaClass.simpleName)
         this.isMining = false
-        xmrigAPIService?.stopSummaryUpdates()
+        try {
+            xmrigAPIService?.stopSummaryUpdates()
+        } catch (e: Exception) {
+            Log.w(this.name, "Unable to stop summary updates", e)
+        }
         stopThermalMonitoring()
 
         val payload = Arguments.createMap()
         payload.putBoolean("isWorking", false)
-        reactApplicationContext
-                .getJSModule(RCTDeviceEventEmitter::class.java)
-                    .emit("onStatusChange", payload)
+        emit("onStatusChange", payload)
     }
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
@@ -135,9 +142,7 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
         if (event.value != null) {
             payload.putDouble("value", event.value!!.toDouble())
         }
-        reactApplicationContext
-                .getJSModule(RCTDeviceEventEmitter::class.java)
-                .emit("onPower", payload)
+        emit("onPower", payload)
     }
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
@@ -147,9 +152,7 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
             val payload = Arguments.createMap()
             payload.putString("data", event.value)
 
-            reactApplicationContext
-                    .getJSModule(RCTDeviceEventEmitter::class.java)
-                    .emit("onSummary", payload)
+            emit("onSummary", payload)
         }
     }
 
@@ -159,28 +162,46 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
         val payload = Arguments.createMap()
         payload.putDouble("cpuTemperature", event.cpuTemperature.toDouble())
 
-        reactApplicationContext
-                .getJSModule(RCTDeviceEventEmitter::class.java)
-                .emit("onThermal", payload)
+        emit("onThermal", payload)
     }
 
     @ReactMethod
-    fun start(configurationJSON: String) {
-        fileObserver.startWatching()
-        val jsonFormat = Json { explicitNulls = false }
-        val data = jsonFormat.decodeFromString<Configuration>(configurationJSON)
-
-        Log.d(this.name, "Start XMRig (${data.xmrig_fork.toString().lowercase(Locale.getDefault())}) $configurationJSON")
-
-        //val configBuilder = XMRigConfigBuilder(this.reactApplicationContext.applicationContext)
-        configBuilder.reset()
-        configBuilder.setConfiguration(data)
-        val configPath = configBuilder.writeConfig()
-        Log.d(this.name, configBuilder.getConfigString())
+    fun start(configurationJSON: String, promise: Promise) {
         try {
-            miningService?.startMiner(configPath, data.xmrig_fork.toString())
-        } catch (e: RemoteException) {
-            e.printStackTrace()
+            val jsonFormat = Json {
+                explicitNulls = false
+                ignoreUnknownKeys = true
+            }
+            val data = jsonFormat.decodeFromString<Configuration>(configurationJSON)
+            require(!data.config.isNullOrBlank()) { "The generated XMRig configuration is empty" }
+
+            Log.d(
+                this.name,
+                "Start XMRig (${data.xmrig_fork.toString().lowercase(Locale.getDefault())}) " +
+                        "configuration length=${configurationJSON.length}"
+            )
+
+            configBuilder.reset()
+            configBuilder.setConfiguration(data)
+            val configPath = configBuilder.writeConfig()
+            check(File(configPath).isFile && File(configPath).length() > 0) {
+                "Unable to write XMRig configuration"
+            }
+            Log.d(this.name, "XMRig config written to $configPath")
+
+            // Watch the file only after it exists. Watching a path before the
+            // first write is unreliable on Android and may produce callbacks
+            // for a partially-created file.
+            fileObserver.stopWatching()
+            fileObserver.startWatching()
+
+            val service = miningService
+                    ?: throw IllegalStateException("Mining service is not connected yet")
+            service.startMiner(configPath, data.xmrig_fork.toString())
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(this.name, "Unable to start XMRig", e)
+            promise.reject("MINER_START_FAILED", e.message ?: "Unable to start XMRig", e)
         }
     }
 
@@ -191,7 +212,7 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
             miningService?.stopMiner()
             xmrigAPIService?.stopSummaryUpdates()
         } catch (e: RemoteException) {
-            e.printStackTrace()
+            Log.e(this.name, "Unable to stop XMRig", e)
         }
         EventBus.getDefault().post(MinerStopEvent())
     }
@@ -209,12 +230,20 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
 
     @ReactMethod
     fun pauseMiner() {
-        xmrigAPIService?.pauseMiner()
+        try {
+            xmrigAPIService?.pauseMiner()
+        } catch (e: Exception) {
+            Log.w(this.name, "Unable to pause XMRig", e)
+        }
     }
 
     @ReactMethod
     fun resumeMiner() {
-        xmrigAPIService?.resumeMiner()
+        try {
+            xmrigAPIService?.resumeMiner()
+        } catch (e: Exception) {
+            Log.w(this.name, "Unable to resume XMRig", e)
+        }
     }
 
     override fun getName(): String {
@@ -235,13 +264,33 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
     private fun startThermalMonitoring() {
         val intent = Intent(reactApplicationContext, ThermalService::class.java)
                 .setAction(ThermalService.ACTION_START)
-        reactApplicationContext.startService(intent)
+        try {
+            reactApplicationContext.startService(intent)
+        } catch (e: Exception) {
+            Log.w(this.name, "Unable to start thermal monitoring", e)
+        }
     }
 
     private fun stopThermalMonitoring() {
         val intent = Intent(reactApplicationContext, ThermalService::class.java)
                 .setAction(ThermalService.ACTION_STOP)
-        reactApplicationContext.startService(intent)
+        try {
+            reactApplicationContext.startService(intent)
+        } catch (e: Exception) {
+            Log.w(this.name, "Unable to stop thermal monitoring", e)
+        }
+    }
+
+    private fun emit(eventName: String, payload: WritableMap) {
+        try {
+            reactApplicationContext
+                    .getJSModule(RCTDeviceEventEmitter::class.java)
+                    .emit(eventName, payload)
+        } catch (e: Exception) {
+            // EventBus callbacks can outlive the React instance during an
+            // Activity restart. Emitting an event must never crash the app.
+            Log.w(this.name, "Unable to emit $eventName", e)
+        }
     }
 
     @ReactMethod

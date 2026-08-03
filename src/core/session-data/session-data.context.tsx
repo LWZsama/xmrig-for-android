@@ -64,11 +64,11 @@ export const SessionDataContextProvider:React.FC = ({ children }) => {
   const resumeMiner = React.useCallback(() => XMRigForAndroid?.resumeMiner(), []);
 
   React.useEffect(() => {
-    hashrateHistory.add(parseFloat(`${minerData?.hashrate.total[0]}`) || 0);
-    hashrateHistory10s.add(parseFloat(`${minerData?.hashrate.total[0]}`) || 0);
-    hashrateHistory60s.add(parseFloat(`${minerData?.hashrate.total[1]}`) || 0);
-    hashrateHistory15m.add(parseFloat(`${minerData?.hashrate.total[2]}`) || 0);
-    hashrateHistoryMax.add(parseFloat(`${minerData?.hashrate.highest}`) || 0);
+    hashrateHistory.add(parseFloat(`${minerData?.hashrate?.total?.[0]}`) || 0);
+    hashrateHistory10s.add(parseFloat(`${minerData?.hashrate?.total?.[0]}`) || 0);
+    hashrateHistory60s.add(parseFloat(`${minerData?.hashrate?.total?.[1]}`) || 0);
+    hashrateHistory15m.add(parseFloat(`${minerData?.hashrate?.total?.[2]}`) || 0);
+    hashrateHistoryMax.add(parseFloat(`${minerData?.hashrate?.highest}`) || 0);
   }, [minerData]);
 
   React.useEffect(() => {
@@ -90,7 +90,8 @@ export const SessionDataContextProvider:React.FC = ({ children }) => {
     const MinerEmitter = new NativeEventEmitter(XMRigForAndroid);
 
     const onLogSub:EmitterSubscription = MinerEmitter.addListener('onLog', (data:IXMRigLogEvent) => {
-      const cleanData = [...data.log.filter((item) => !filterLogLineRegex.test(item))];
+      const cleanData = [...(Array.isArray(data?.log) ? data.log : [])]
+        .filter((item) => !filterLogLineRegex.test(item));
       cleanData.forEach((itemLog) => log(itemLog.replace(cleanAnsiLogLineRegex, '$2').toString()));
     });
 
