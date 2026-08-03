@@ -115,7 +115,7 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
         >
           <VictoryArea
             groupComponent={<VictoryClipContainer clipPadding={{ top: 5, right: 0 }} />}
-            data={hashrateHistoryData}
+            data={_.takeRight(hashrateHistoryData, 12)}
             style={{
               data: {
                 fill: Colors.$backgroundPrimaryLight,

@@ -8,12 +8,17 @@ import android.util.Log
 import androidx.work.*
 import com.xmrigforandroid.workers.ThermalWorker
 
+private const val THERMAL_UPDATE_INTERVAL_MS = 20_000L
+
 class ThermalService : Service() {
 
     private val thermalWorkRequest = OneTimeWorkRequestBuilder<ThermalWorker>()
             .addTag(THERMAL_WORK_TAG)
 
-    val updateTimer = object: CountDownTimer(15000, 15000) {
+    val updateTimer = object: CountDownTimer(
+            THERMAL_UPDATE_INTERVAL_MS,
+            THERMAL_UPDATE_INTERVAL_MS
+    ) {
         override fun onTick(millisUntilFinished: Long) {
         }
 

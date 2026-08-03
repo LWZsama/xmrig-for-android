@@ -9,13 +9,18 @@ import androidx.work.*
 import com.xmrigforandroid.workers.XMRigJsonRpcWorker
 import com.xmrigforandroid.workers.XMRigSummaryUpdateWorker
 
+private const val SUMMARY_UPDATE_INTERVAL_MS = 15_000L
+
 class XMRigAPIService : Service() {
     private val summaryUpdateWorkerRequest = OneTimeWorkRequestBuilder<XMRigSummaryUpdateWorker>()
             .addTag(SUMMARY_WORK_TAG)
 
     var isSummaryUpdate = false
 
-    val summaryUpdateTimer = object: CountDownTimer(10000, 10000) {
+    val summaryUpdateTimer = object: CountDownTimer(
+            SUMMARY_UPDATE_INTERVAL_MS,
+            SUMMARY_UPDATE_INTERVAL_MS
+    ) {
         override fun onTick(millisUntilFinished: Long) {
         }
 

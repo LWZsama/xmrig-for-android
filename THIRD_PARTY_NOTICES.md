@@ -7,14 +7,14 @@ This repository packages and builds third-party native code. The notices below i
 - Source: https://github.com/xmrig/xmrig
 - Pinned version: `v6.26.0`
 - License: GNU General Public License v3.0 or later, as specified by the upstream project.
-- Local changes: `xmrig/lib-builder/xmrig.patch` changes the donation strategy configuration used by this application.
+- Local changes: `xmrig/lib-builder/xmrig.patch` disables the upstream donation strategy for this application.
 
 ## MoneroOcean XMRig
 
 - Source: https://github.com/MoneroOcean/xmrig
 - Pinned version: `v6.26.0-mo4`
 - License: GNU General Public License v3.0 or later, as specified by the upstream project.
-- Local build compatibility change: `xmrig/lib-builder/script/xmrig-mo-fetch.sh` adds the `flex_enc32le_aligned` compatibility alias.
+- Local changes: `xmrig/lib-builder/xmrig-mo.patch` disables the upstream donation strategy; `xmrig/lib-builder/script/xmrig-mo-fetch.sh` also adds the `flex_enc32le_aligned` compatibility alias.
 
 ## Other native dependencies
 

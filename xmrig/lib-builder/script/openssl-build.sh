@@ -60,15 +60,24 @@ for arch in "${archs[@]}"; do
 
     TARGET_DIR="$EXTERNAL_LIBS_ROOT/openssl/$ANDROID_ABI"
 
+    if [ -s "$TARGET_DIR/lib/libssl.a" ] && [ -s "$TARGET_DIR/lib/libcrypto.a" ]; then
+        echo "OpenSSL artifacts already exist for ${ANDROID_ABI}."
+        continue
+    fi
+
     mkdir -p "$TARGET_DIR"
     echo "building for ${arch}"
+
+    if [ -f Makefile ]; then
+        make distclean >/dev/null 2>&1 || true
+    fi
 
     ./Configure "$architecture" -D__ANDROID_API__="$ANDROID_API" --prefix="$TARGET_DIR" \
         -no-shared -no-asm -no-zlib -no-comp -no-dgram -no-filenames -no-cms
 
-    make -j 4
-    make install
-    make clean
+    make -j 4 build_libs
+    make install_dev
+    make distclean >/dev/null 2>&1 || true
 
 done
 

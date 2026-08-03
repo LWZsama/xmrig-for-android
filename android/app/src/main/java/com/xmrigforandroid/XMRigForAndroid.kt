@@ -229,6 +229,69 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
     }
 
     @ReactMethod
+    fun cpuTopology(promise: Promise) {
+        try {
+            val processors = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+            val frequencies = (0 until processors).map { readCpuMaxFrequency(it) }
+            val knownFrequencies = frequencies.filterNotNull()
+            val allAffinity = affinityMask((0 until processors).toList())
+            val map = Arguments.createMap()
+
+            map.putInt("processors", processors)
+            if (allAffinity != null) {
+                map.putString("allAffinity", allAffinity)
+            }
+
+            val hasCompleteFrequencyData = knownFrequencies.size == processors
+            val minimumFrequency = knownFrequencies.minOrNull() ?: 0L
+            val maximumFrequency = knownFrequencies.maxOrNull() ?: 0L
+            val hasPerformanceCluster = hasCompleteFrequencyData
+                    && minimumFrequency > 0L
+                    && maximumFrequency > minimumFrequency * 11L / 10L
+
+            if (hasPerformanceCluster) {
+                val performanceCpus = frequencies.mapIndexedNotNull { index, frequency ->
+                    if (frequency != null && frequency >= maximumFrequency * 95L / 100L) index else null
+                }
+                val performanceAffinity = affinityMask(performanceCpus)
+                if (performanceAffinity != null) {
+                    map.putInt("performanceThreads", performanceCpus.size)
+                    map.putString("performanceAffinity", performanceAffinity)
+                }
+            }
+
+            promise.resolve(map)
+        } catch (e: Exception) {
+            promise.reject("CPU_TOPOLOGY_FAILED", e)
+        }
+    }
+
+    private fun readCpuMaxFrequency(cpu: Int): Long? {
+        val paths = listOf(
+                "/sys/devices/system/cpu/cpu${cpu}/cpufreq/cpuinfo_max_freq",
+                "/sys/devices/system/cpu/cpufreq/policy${cpu}/cpuinfo_max_freq"
+        )
+        return paths.asSequence()
+                .mapNotNull { path ->
+                    try {
+                        File(path).readText().trim().toLongOrNull()
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                .firstOrNull { it > 0L }
+    }
+
+    private fun affinityMask(cpus: List<Int>): String? {
+        if (cpus.any { it !in 0..63 }) {
+            return null
+        }
+        var mask = 0L
+        cpus.forEach { cpu -> mask = mask or (1L shl cpu) }
+        return "0x${java.lang.Long.toUnsignedString(mask, 16)}"
+    }
+
+    @ReactMethod
     fun pauseMiner() {
         try {
             xmrigAPIService?.pauseMiner()

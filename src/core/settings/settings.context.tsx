@@ -40,7 +40,7 @@ const initialState: ISettings = {
     resumeCPUTemperatureNormal: false,
     resumeCPUTemperatureNormalValue: 80.0,
   },
-  donation: 5,
+  donation: 0,
   printTime: 60,
 };
 
@@ -56,8 +56,9 @@ const defaultAlgorithems = Algorithems.reduce((acc, item) => ({
 export const defaultSimpleConfiguration: Partial<ISimpleConfiguration> = {
   properties: {
     cpu: {
-      yield: true,
-      random_x_mode: RandomXMode.LIGHT,
+      yield: false,
+      priority: 2,
+      random_x_mode: RandomXMode.AUTO,
       max_threads_hint: 100,
     },
     algos: {
@@ -91,15 +92,28 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
       .then((value:ISettings) => {
         const fixValue:ISettings = {
           ...value,
+          donation: 0,
           configurations: value.configurations.map((item) => {
             if (item.mode === ConfigurationMode.SIMPLE) {
-              return merge(
+              const simpleConfiguration = merge(
                 {
                   ...defaultSimpleConfiguration,
                   ...defaultConfiguration,
                 },
                 item,
               );
+              return {
+                ...simpleConfiguration,
+                properties: {
+                  ...simpleConfiguration.properties,
+                  cpu: {
+                    ...simpleConfiguration.properties?.cpu,
+                    yield: false,
+                    priority: 2,
+                    random_x_mode: RandomXMode.AUTO,
+                  },
+                },
+              };
             }
 
             return {

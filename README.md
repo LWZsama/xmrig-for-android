@@ -25,8 +25,5 @@ Google Play Store link: https://play.google.com/store/apps/details?id=com.xmrigf
 #### Credits
 * Splash Screen Artwork by [AOICARD](https://www.reddit.com/user/AOICARD/)
 
-### Donations
-XMR: 46gPyHjLPPM8HaayVyvCDcF2A8sq8b476VrwKMukrKg21obm1AKEwzoN3u4ooc55FKdNeF5B8vcs4ixbeCyuydr2A2sdsQi
-
 ### Third-party notices
 The native miner sources and their corresponding build patches are covered by their upstream licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before redistributing builds.

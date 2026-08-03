@@ -69,9 +69,10 @@ for arch in "${archs[@]}"; do
     echo "building for ${arch} in ${TARGET_DIR}"
 
     "$CMAKE" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
-        "${CMAKE_LAUNCHER_ARGS[@]}" \
+        ${CMAKE_LAUNCHER_ARGS[@]+"${CMAKE_LAUNCHER_ARGS[@]}"} \
         -DANDROID_ABI="$ANDROID_ABI" \
         -DANDROID_PLATFORM=$ANDROID_PLATFORM \
+        -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX:PATH="$TARGET_DIR" \
         -DANDROID_CROSS_COMPILE=ON \
         -DBUILD_SHARED_LIBS=OFF \

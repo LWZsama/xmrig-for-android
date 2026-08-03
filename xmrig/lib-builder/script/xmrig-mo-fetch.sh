@@ -10,6 +10,7 @@ cd "$EXTERNAL_LIBS_BUILD_ROOT"
 
 version="v6.26.0-mo4"
 REPOSITORY="$EXTERNAL_LIBS_BUILD_ROOT/xmrig-mo"
+PATCH_FILE="$SCRIPT_DIR/../xmrig-mo.patch"
 
 if [ ! -d "$REPOSITORY/.git" ]; then
   rm -rf "$REPOSITORY"
@@ -36,3 +37,6 @@ if macro not in text:
 if text.count(macro) != 1:
     raise SystemExit(f"compatibility macro count is not one in {path}")
 PY
+
+git -C "$REPOSITORY" apply --check --whitespace=error-all "$PATCH_FILE"
+git -C "$REPOSITORY" apply "$PATCH_FILE"

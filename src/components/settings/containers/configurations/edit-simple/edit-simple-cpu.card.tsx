@@ -61,25 +61,29 @@ const EditSimpleCPUCardComponent: React.FC<EditSimpleCardProps> = (
             <Text text80 $textNeutralLight flex column marginB-5>Yield</Text>
             <Switch
               value={localState.properties?.cpu?.yield}
-              onValueChange={(value) => setLocalState((oldState) => updateSimpleConfigurationProperties(
-                oldState,
-                { cpu: { ...oldState.properties?.cpu, yield: value } },
-              ))}
+              onValueChange={(value) => setLocalState(
+                (oldState) => updateSimpleConfigurationProperties(
+                  oldState,
+                  { cpu: { ...oldState.properties?.cpu, yield: value } },
+                ),
+              )}
             />
           </View>
           <Text text100 $textNeutralLight row>
-            Prefer system better system response/stability `ON` (default value)
-            or maximum hashrate `OFF`.
+            Maximum hashrate `OFF` (optimized default); turn `ON` only when
+            interactive system response is more important.
           </Text>
         </View>
         <View flex paddingT-10>
           <View marginB-10>
             <Text text80 $textNeutralLight flex row marginB-2>RandomX Mode</Text>
             <RadioGroup
-              onValueChange={(value: RandomXMode) => setLocalState((oldState) => updateSimpleConfigurationProperties(
-                oldState,
-                { cpu: { ...oldState.properties?.cpu, random_x_mode: value } },
-              ))}
+              onValueChange={(value: RandomXMode) => setLocalState(
+                (oldState) => updateSimpleConfigurationProperties(
+                  oldState,
+                  { cpu: { ...oldState.properties?.cpu, random_x_mode: value } },
+                ),
+              )}
               initialValue={localState.properties?.cpu?.random_x_mode}
               marginB-5
             >
@@ -123,7 +127,7 @@ const EditSimpleCPUCardComponent: React.FC<EditSimpleCardProps> = (
           />
           <Text text100 $textNeutralLight row>
             Threads priority, from 1 (lowest) to 5 (highest).
-            Default: null - doesn't change priority.
+            Optimized default: 2 (normal priority).
           </Text>
         </View>
         <View flex paddingT-10>
@@ -157,6 +161,8 @@ const EditSimpleCPUCardComponent: React.FC<EditSimpleCardProps> = (
             For 1 core CPU this option has no effect,
             for 2 core CPU only 2 values possible 50% and 100%,
             for 4 cores: 25%, 50%, 75%, 100%. etc.
+            On ARM, XMRig also receives an automatic thread affinity profile
+            when the device exposes big.LITTLE topology information.
           </Text>
         </View>
       </View>

@@ -3,11 +3,24 @@ import _ from 'lodash';
 import { NativeModules } from 'react-native';
 import { Incubator } from 'react-native-ui-lib';
 import { SettingsContext } from '../settings';
-import { Configuration } from '../settings/settings.interface';
-import ConfigBuilder from '../xmrig-config/config-builder';
+import { Configuration, ConfigurationMode } from '../settings/settings.interface';
+import ConfigBuilder, { CpuTopology } from '../xmrig-config/config-builder';
 import { useToaster } from './use-toaster/use-toaster.hook';
 
 const { XMRigForAndroid } = NativeModules;
+
+const getCpuTopology = async (): Promise<CpuTopology | undefined> => {
+  if (typeof XMRigForAndroid?.cpuTopology !== 'function') {
+    return undefined;
+  }
+
+  try {
+    return await XMRigForAndroid.cpuTopology();
+  } catch (error) {
+    console.warn('Unable to read CPU topology; using XMRig fallback', error);
+    return undefined;
+  }
+};
 
 export interface IMinerSendCompiguration {
   id: string,
@@ -45,7 +58,7 @@ export const useMiner = () => {
     }
   }, [reportStartError]);
 
-  const startWithSelectedConfigurationHandler = React.useCallback(() => {
+  const startWithSelectedConfigurationHandler = React.useCallback(async () => {
     if (settings.selectedConfiguration) {
       const cConfig:Configuration | undefined = settings.configurations.find(
         (config) => config.id === settings.selectedConfiguration,
@@ -53,14 +66,17 @@ export const useMiner = () => {
 
       if (cConfig) {
         try {
-          const sConfig = ConfigBuilder.build(cConfig);
+          const cpuTopology = cConfig.mode === ConfigurationMode.SIMPLE
+            ? await getCpuTopology()
+            : undefined;
+          const sConfig = ConfigBuilder.build(cConfig, cpuTopology);
           if (sConfig) {
             const sConfigPartial: Partial<IMinerSendCompiguration> = _.pick(
               cConfig,
               ['id', 'name', 'mode', 'xmrig_fork'],
             );
             sConfig.setProps({
-              'donate-level': settings.donation,
+              'donate-level': 0,
               'print-time': settings.printTime,
             });
 

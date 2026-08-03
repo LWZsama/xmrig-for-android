@@ -1,6 +1,6 @@
 {
   "name": "xmrig-for-android",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "XMRig monero miner for Android with React Native user interface",
   "author": {
     "name": "Garry Lachman",
