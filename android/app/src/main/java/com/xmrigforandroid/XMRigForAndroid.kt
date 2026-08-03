@@ -25,11 +25,6 @@ import com.xmrigforandroid.events.*
 import com.xmrigforandroid.services.IXMRigAPIService
 import com.xmrigforandroid.services.ThermalService
 import com.xmrigforandroid.services.XMRigAPIService
-import com.xmrigforandroid.utils.CPUTemperatureHelper
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.newSingleThreadContext
-import kotlinx.coroutines.runBlocking
 
 
 class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaModule(context) {
@@ -66,25 +61,16 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
     };
 
     init {
-        runBlocking(Dispatchers.IO) {
-            arrayOf(
-                    MiningService::class.java,
-                    XMRigAPIService::class.java,
-                    ThermalService::class.java
-            ).onEach {
-                launch(newSingleThreadContext("Thread-"+it.toString())) {
-                    val intent = Intent(context, it)
-                    context.bindService(intent, serverConnection, Context.BIND_AUTO_CREATE)
-                    when(it) {
-                        MiningService::class.java -> {
-                            context.startForegroundService(intent)
-                        }
-                        else -> {
-                            context.startService(intent)
-                        }
-                    }
-
-                }
+        arrayOf(
+                MiningService::class.java,
+                XMRigAPIService::class.java
+        ).forEach { serviceClass ->
+            val intent = Intent(context, serviceClass)
+            context.bindService(intent, serverConnection, Context.BIND_AUTO_CREATE)
+            if (serviceClass == MiningService::class.java) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
             }
         }
     }
@@ -119,6 +105,7 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
         Log.d(this.name, "event name: " + event.javaClass.simpleName)
         this.isMining = true
         xmrigAPIService?.startSummaryUpdates()
+        startThermalMonitoring()
 
         val payload = Arguments.createMap()
         payload.putBoolean("isWorking", true)
@@ -132,6 +119,7 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
         Log.d(this.name, "event name: " + event.javaClass.simpleName)
         this.isMining = false
         xmrigAPIService?.stopSummaryUpdates()
+        stopThermalMonitoring()
 
         val payload = Arguments.createMap()
         payload.putBoolean("isWorking", false)
@@ -240,8 +228,21 @@ class XMRigForAndroid(context: ReactApplicationContext) : ReactContextBaseJavaMo
     }
 
     override fun onCatalystInstanceDestroy() {
+        fileObserver.stopWatching()
         super.onCatalystInstanceDestroy()
         EventBus.getDefault().unregister(this)
+    }
+
+    private fun startThermalMonitoring() {
+        val intent = Intent(reactApplicationContext, ThermalService::class.java)
+                .setAction(ThermalService.ACTION_START)
+        reactApplicationContext.startService(intent)
+    }
+
+    private fun stopThermalMonitoring() {
+        val intent = Intent(reactApplicationContext, ThermalService::class.java)
+                .setAction(ThermalService.ACTION_STOP)
+        reactApplicationContext.startService(intent)
     }
 
     @ReactMethod

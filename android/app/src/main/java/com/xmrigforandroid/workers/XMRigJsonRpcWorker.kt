@@ -9,7 +9,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.IOException
 
 class XMRigJsonRpcWorker(appContext: Context, workerParams: WorkerParameters):
         CoroutineWorker(appContext, workerParams) {
@@ -18,7 +17,11 @@ class XMRigJsonRpcWorker(appContext: Context, workerParams: WorkerParameters):
 
     override suspend fun doWork(): Result {
         return withContext(Dispatchers.IO) {
-            val method = inputData.getString("METHOD") ?: Result.failure();
+            val method = inputData.getString("METHOD")
+            if (method.isNullOrBlank()) {
+                Log.e(XMRigJsonRpcWorker.LOG_TAG, "METHOD is missing")
+                return@withContext Result.failure()
+            }
             Log.d(XMRigJsonRpcWorker.LOG_TAG, "Sending JSON RPC to XMRig: " + method)
             val requestBody = "{\"method\":\"" + method + "\", \"id\": 1}"
             val request = Request.Builder()
@@ -31,15 +34,14 @@ class XMRigJsonRpcWorker(appContext: Context, workerParams: WorkerParameters):
             try {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
-                        Log.e(XMRigJsonRpcWorker.LOG_TAG, response.body.toString())
-                        Result.failure()
-                        throw IOException("Unexpected code $response")
+                        Log.e(XMRigJsonRpcWorker.LOG_TAG, response.body?.string().orEmpty())
+                        return@withContext Result.failure()
                     }
-                    Result.success()
+                    return@withContext Result.success()
                 }
             } catch (e: Exception) {
                 Log.e(XMRigJsonRpcWorker.LOG_TAG, e.message.toString())
-                Result.failure()
+                return@withContext Result.failure()
             }
         }
     }

@@ -1,22 +1,35 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-source script/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
-cd $EXTERNAL_LIBS_BUILD_ROOT/libuv
-mkdir build && cd build
+cd "$EXTERNAL_LIBS_BUILD_ROOT/libuv"
+mkdir -p build
 
 TOOLCHAIN=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
-CMAKE=$(which cmake || echo $ANDROID_HOME/cmake/3.18.1/bin/cmake)
+CMAKE="$(command -v cmake || true)"
+if [ -z "$CMAKE" ]; then
+    CMAKE="${ANDROID_HOME:-}/cmake/3.18.1/bin/cmake"
+fi
+if [ ! -x "$CMAKE" ]; then
+    echo "cmake was not found" >&2
+    exit 1
+fi
 ANDROID_PLATFORM=android-29
+CMAKE_LAUNCHER_ARGS=()
+if command -v ccache >/dev/null 2>&1; then
+    CMAKE_LAUNCHER_ARGS+=("-DCMAKE_C_COMPILER_LAUNCHER=ccache")
+    CMAKE_LAUNCHER_ARGS+=("-DCMAKE_CXX_COMPILER_LAUNCHER=ccache")
+fi
 
 #if [ ! -f "configure" ]; then
 #  ./autogen.sh
 #fi
 
 archs=(arm arm64 x86 x86_64)
-for arch in ${archs[@]}; do
+for arch in "${archs[@]}"; do
     case ${arch} in
         "arm")
             target_host=arm-linux-androideabi
@@ -39,24 +52,23 @@ for arch in ${archs[@]}; do
             ;;
     esac
 
-    mkdir -p $EXTERNAL_LIBS_BUILD_ROOT/libuv/build/$ANDROID_ABI
-    cd $EXTERNAL_LIBS_BUILD_ROOT/libuv/build/$ANDROID_ABI
+    mkdir -p "$EXTERNAL_LIBS_BUILD_ROOT/libuv/build/$ANDROID_ABI"
+    cd "$EXTERNAL_LIBS_BUILD_ROOT/libuv/build/$ANDROID_ABI"
     
-    TARGET_DIR=$EXTERNAL_LIBS_ROOT/libuv/$ANDROID_ABI
+    TARGET_DIR="$EXTERNAL_LIBS_ROOT/libuv/$ANDROID_ABI"
 
-    if [ -f "$TARGET_DIR/lib/libuv.la" ]; then
+    if [ -f "$TARGET_DIR/lib/libuv_a.a" ]; then
       continue
     fi
 
-    mkdir -p $TARGET_DIR
+    mkdir -p "$TARGET_DIR"
     echo "- Building for ${arch} (${ANDROID_ABI})"
 
-    $CMAKE -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN \
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+    "$CMAKE" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+        "${CMAKE_LAUNCHER_ARGS[@]}" \
         -DANDROID_ABI="$ANDROID_ABI" \
         -DANDROID_PLATFORM=$ANDROID_PLATFORM \
-        -DCMAKE_INSTALL_PREFIX=$TARGET_DIR \
+        -DCMAKE_INSTALL_PREFIX="$TARGET_DIR" \
         -DBUILD_SHARED_LIBS=OFF \
         ../../ \
         && make -j 4 \

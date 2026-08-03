@@ -2,8 +2,6 @@ package com.xmrigforandroid;
 
 import com.facebook.react.ReactActivity;
 
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 import android.view.WindowManager;
 
@@ -25,13 +23,5 @@ public class MainActivity extends ReactActivity {
     SplashScreen.show(this);  // here
     super.onCreate(null);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-    IntentFilter batterFilters = new IntentFilter();
-    batterFilters.addAction(Intent.ACTION_BATTERY_CHANGED);
-    batterFilters.addAction(Intent.ACTION_BATTERY_LOW);
-    batterFilters.addAction(Intent.ACTION_BATTERY_OKAY);
-    batterFilters.addAction(Intent.ACTION_POWER_CONNECTED);
-    batterFilters.addAction(Intent.ACTION_POWER_DISCONNECTED);
-    registerReceiver(new PowerMonitorReceiver(), batterFilters);
   }
 }

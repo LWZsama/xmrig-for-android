@@ -8,13 +8,12 @@ import android.util.Log
 import androidx.work.*
 import com.xmrigforandroid.workers.XMRigJsonRpcWorker
 import com.xmrigforandroid.workers.XMRigSummaryUpdateWorker
-import okhttp3.OkHttpClient
 
 class XMRigAPIService : Service() {
-    val summaryUpdateWorkerRequest: OneTimeWorkRequest.Builder = OneTimeWorkRequestBuilder<XMRigSummaryUpdateWorker>()
+    private val summaryUpdateWorkerRequest = OneTimeWorkRequestBuilder<XMRigSummaryUpdateWorker>()
+            .addTag(SUMMARY_WORK_TAG)
 
     var isSummaryUpdate = false
-    private val client = OkHttpClient()
 
     val summaryUpdateTimer = object: CountDownTimer(10000, 10000) {
         override fun onTick(millisUntilFinished: Long) {
@@ -57,6 +56,7 @@ class XMRigAPIService : Service() {
         override fun startSummaryUpdates() {
             Log.d(LOG_TAG, "startSummaryUpdates")
             isSummaryUpdate = true
+            summaryUpdateTimer.cancel()
             summaryUpdateTimer.start()
         }
 
@@ -71,8 +71,17 @@ class XMRigAPIService : Service() {
         return binder
     }
 
+    override fun onDestroy() {
+        isSummaryUpdate = false
+        summaryUpdateTimer.cancel()
+        WorkManager.getInstance(applicationContext)
+                .cancelAllWorkByTag(SUMMARY_WORK_TAG)
+        super.onDestroy()
+    }
+
     companion object {
-        private val LOG_TAG = "XMRigAPIService"
+        private const val SUMMARY_WORK_TAG = "xmrig-summary-updates"
+        private const val LOG_TAG = "XMRigAPIService"
         var IS_SERVICE_RUNNING = false
     }
 }

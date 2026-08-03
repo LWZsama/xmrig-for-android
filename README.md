@@ -1,6 +1,6 @@
 # XMRig for Android 
 
-[![BuildAll](https://github.com/XMRig-for-Android/xmrig-for-android/actions/workflows/build-all.yml/badge.svg)](https://github.com/XMRig-for-Android/xmrig-for-android/actions/workflows/build-all.yml)
+[![Build & Release](https://github.com/XMRig-for-Android/xmrig-for-android/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/XMRig-for-Android/xmrig-for-android/actions/workflows/build-and-release.yml)
 
 XMRig for Android acts as a User Interface & Management application for XMRig. To understand how the mining process works, please read [XMRig's Documentation](https://xmrig.com/docs/miner)
 
@@ -27,3 +27,6 @@ Google Play Store link: https://play.google.com/store/apps/details?id=com.xmrigf
 
 ### Donations
 XMR: 46gPyHjLPPM8HaayVyvCDcF2A8sq8b476VrwKMukrKg21obm1AKEwzoN3u4ooc55FKdNeF5B8vcs4ixbeCyuydr2A2sdsQi
+
+### Third-party notices
+The native miner sources and their corresponding build patches are covered by their upstream licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before redistributing builds.

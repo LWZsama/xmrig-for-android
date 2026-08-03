@@ -7,7 +7,6 @@ import androidx.work.WorkerParameters
 import com.xmrigforandroid.events.ThermalEvent
 import com.xmrigforandroid.utils.CPUTemperatureHelper
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 

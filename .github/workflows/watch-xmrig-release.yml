@@ -1,0 +1,83 @@
+name: Watch XMRig Release
+
+on:
+  # The watcher is the only daily scheduled workflow. Build & Release has no cron trigger.
+  schedule:
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: watch-xmrig-release
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check upstream tags
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          API_HEADERS=(
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H "Accept: application/vnd.github+json"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+          CONTENTS_BASE="https://api.github.com/repos/${GITHUB_REPOSITORY}/contents"
+          CONTENT_HEADERS=(
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H "Accept: application/vnd.github.raw+json"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+
+          LATEST_XMRIG="$(curl --fail --location --retry 3 --silent --show-error \
+            "${API_HEADERS[@]}" \
+            https://api.github.com/repos/xmrig/xmrig/releases/latest \
+            | sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' \
+            | head -n 1)"
+          if [[ -z "$LATEST_XMRIG" ]]; then
+            LATEST_XMRIG="$(git ls-remote --tags https://github.com/xmrig/xmrig.git \
+              | awk '$2 ~ /refs\/tags\/v[0-9][^{}]*$/ { sub("refs/tags/", "", $2); print $2 }' \
+              | sort -V | tail -n 1)"
+          fi
+
+          LATEST_XMRIG_MO="$(git ls-remote --tags https://github.com/MoneroOcean/xmrig.git \
+            | awk '$2 ~ /refs\/tags\/v[0-9][^{}]*$/ { sub("refs/tags/", "", $2); print $2 }' \
+            | sort -V | tail -n 1)"
+
+          CURRENT_XMRIG="$(curl --fail --location --retry 3 --silent --show-error \
+            "${CONTENT_HEADERS[@]}" \
+            "$CONTENTS_BASE/xmrig/lib-builder/script/xmrig-fetch.sh?ref=$GITHUB_SHA" \
+            | sed -n 's/^version="\([^"]*\)"/\1/p')"
+          CURRENT_XMRIG_MO="$(curl --fail --location --retry 3 --silent --show-error \
+            "${CONTENT_HEADERS[@]}" \
+            "$CONTENTS_BASE/xmrig/lib-builder/script/xmrig-mo-fetch.sh?ref=$GITHUB_SHA" \
+            | sed -n 's/^version="\([^"]*\)"/\1/p')"
+
+          [[ "$LATEST_XMRIG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$LATEST_XMRIG_MO" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[[:alnum:].-]+)?$ ]]
+          [[ -n "$CURRENT_XMRIG" && -n "$CURRENT_XMRIG_MO" ]]
+
+          echo "Current XMRig: $CURRENT_XMRIG | Latest XMRig: $LATEST_XMRIG"
+          echo "Current XMRig-MO: $CURRENT_XMRIG_MO | Latest XMRig-MO: $LATEST_XMRIG_MO"
+
+          if [[ "$CURRENT_XMRIG" == "$LATEST_XMRIG" && "$CURRENT_XMRIG_MO" == "$LATEST_XMRIG_MO" ]]; then
+            echo "No upstream update found."
+            exit 0
+          fi
+
+          PAYLOAD="$(printf '{"event_type":"xmrig-release-updated","client_payload":{"xmrig_version":"%s","xmrig_mo_version":"%s","observed_sha":"%s"}}' \
+            "$LATEST_XMRIG" "$LATEST_XMRIG_MO" "$GITHUB_SHA")"
+          curl --fail --location --retry 3 --silent --show-error \
+            "${API_HEADERS[@]}" \
+            --request POST \
+            --data "$PAYLOAD" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/dispatches"
+          echo "Dispatched Build & Release for $LATEST_XMRIG and $LATEST_XMRIG_MO."

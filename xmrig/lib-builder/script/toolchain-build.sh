@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-source script/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
 archs=(arm arm64 x86 x86_64)
 
-for arch in ${archs[@]}; do
+for arch in "${archs[@]}"; do
     mkdir -p "$NDK_TOOL_DIR/$arch"
     if [ ! -e "$NDK_TOOL_DIR/$arch/bin" ]; then
         ln -sf "$TOOLCHAINS_PATH/bin" "$NDK_TOOL_DIR/$arch/bin"

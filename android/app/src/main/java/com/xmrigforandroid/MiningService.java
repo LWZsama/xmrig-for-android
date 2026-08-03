@@ -20,6 +20,7 @@ import com.xmrigforandroid.utils.ProcessExitDetector;
 
 import org.greenrobot.eventbus.EventBus;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -35,6 +36,8 @@ public class MiningService extends Service {
     private Notification.Builder notificationbuilder;
     private Process process;
     private OutputReaderThread outputHandler;
+    private ProcessExitDetector processExitDetector;
+    private PowerManager.WakeLock wakeLock;
 
     private final String ansiRegex = "\\e\\[[\\d;]*[^\\d;]";
     private final Pattern ansiRegexPattern = Pattern.compile(ansiRegex);
@@ -43,9 +46,10 @@ public class MiningService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        Intent notificationIntent = new Intent(this, MiningService.class);
+        Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_MUTABLE);
+                PendingIntent.getActivity(this, 0, notificationIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         notificationbuilder =
                 new Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
@@ -94,10 +98,15 @@ public class MiningService extends Service {
     @Override
     public void onDestroy() {
         stopMining();
+        stopForeground(true);
         super.onDestroy();
     }
 
-    public void stopMining() {
+    public synchronized void stopMining() {
+        if (processExitDetector != null) {
+            processExitDetector.cancel();
+            processExitDetector = null;
+        }
         if (outputHandler != null) {
             outputHandler.interrupt();
             outputHandler = null;
@@ -107,26 +116,28 @@ public class MiningService extends Service {
             process = null;
             Log.i(LOG_TAG, "stopped");
         }
+        releaseWakeLock();
     }
 
-    public void startMining(String configPath, String xmrigFork) {
+    public synchronized void startMining(String configPath, String xmrigFork) {
+        stopMining();
+
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-        PowerManager.WakeLock wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                 "XMRigForAndroid::MinerWakeLock");
         wakeLock.acquire();
 
         Log.i(LOG_TAG, "starting...");
-        if (process != null) {
-            process.destroy();
-        }
 
-        String xmrigBin = xmrigFork.equals(XMRigFork.MONEROOCEAN.toString()) ? "libxmrig-mo.so" : "libxmrig.so";
+        String xmrigBin = XMRigFork.MONEROOCEAN.toString().equals(xmrigFork)
+                ? "libxmrig-mo.so" : "libxmrig.so";
+        File xmrigFile = new File(getApplicationInfo().nativeLibraryDir, xmrigBin);
 
-        Log.d(LOG_TAG, "libxmrig: " + getApplicationInfo().nativeLibraryDir + "/" + xmrigBin);
+        Log.d(LOG_TAG, "libxmrig: " + xmrigFile.getAbsolutePath());
 
         try {
             String[] args = {
-                    "./"+getApplicationInfo().nativeLibraryDir + "/" + xmrigBin,
+                    xmrigFile.getAbsolutePath(),
                     "-c", configPath,
                     "--http-host=127.0.0.1",
                     "--http-port=50080",
@@ -136,13 +147,24 @@ public class MiningService extends Service {
             ProcessBuilder pb = new ProcessBuilder(args);
             pb.redirectErrorStream(true);
 
-            process = pb.start();
+            final Process startedProcess = pb.start();
+            process = startedProcess;
 
-            ProcessExitDetector processExitDetector = new ProcessExitDetector(process);
-            processExitDetector.addProcessListener(process -> EventBus.getDefault().post(new MinerStopEvent()));
+            processExitDetector = new ProcessExitDetector(startedProcess);
+            processExitDetector.addProcessListener(finishedProcess -> {
+                synchronized (MiningService.this) {
+                    if (process != finishedProcess) {
+                        return;
+                    }
+                    process = null;
+                    processExitDetector = null;
+                    releaseWakeLock();
+                }
+                EventBus.getDefault().post(new MinerStopEvent());
+            });
             processExitDetector.start();
 
-            outputHandler = new MiningService.OutputReaderThread(process.getInputStream());
+            outputHandler = new MiningService.OutputReaderThread(startedProcess.getInputStream());
             outputHandler.start();
 
             EventBus.getDefault().post(new MinerStartEvent());
@@ -150,9 +172,18 @@ public class MiningService extends Service {
         } catch (Exception e) {
             Log.e(LOG_TAG, "exception:", e);
             process = null;
-            wakeLock.release();
+            releaseWakeLock();
         }
 
+    }
+
+    private void releaseWakeLock() {
+        if (wakeLock != null) {
+            if (wakeLock.isHeld()) {
+                wakeLock.release();
+            }
+            wakeLock = null;
+        }
     }
 
     public void updateNotification(String str) {

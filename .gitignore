@@ -111,6 +111,8 @@ android/app/.DS_Store
 android/app/build
 android/app/my-upload-key.keystore
 android/app/debug.keystore
+android/app/release.keystore
+*.jks
 android/app/release
 android/app/src/.DS_Store
 android/app/src/cpp/.DS_Store

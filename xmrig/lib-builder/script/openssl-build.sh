@@ -1,23 +1,41 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-source script/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
-cd $EXTERNAL_LIBS_BUILD_ROOT/openssl
+cd "$EXTERNAL_LIBS_BUILD_ROOT/openssl"
 #mkdir build && cd build
 
 if command -v ccache >/dev/null 2>&1; then
-    CC="ccache clang"
+    export CC="ccache clang"
 else
-    CC=clang
+    export CC=clang
 fi
-PATH=$TOOLCHAINS_PATH/bin:/usr/lib/ccache:$PATH
+export PATH="$TOOLCHAINS_PATH/bin:$PATH"
 ANDROID_API=29
-ANDROID_PLATFORM=android-29
+OPENSSL_VERSION="$(cat .xmrig-version 2>/dev/null || true)"
+BUILD_MARKER="$EXTERNAL_LIBS_ROOT/openssl/.xmrig-build-complete"
+EXPECTED_MARKER="${OPENSSL_VERSION}|${NDK_VERSION}|android-api-${ANDROID_API}|no-asm|no-zlib|no-comp|no-dgram|no-filenames|no-cms"
+
+if [ -f "$BUILD_MARKER" ] && [ "$(cat "$BUILD_MARKER")" = "$EXPECTED_MARKER" ]; then
+    cache_complete=1
+    for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+        if [ ! -s "$EXTERNAL_LIBS_ROOT/openssl/$abi/lib/libssl.a" ] || \
+           [ ! -s "$EXTERNAL_LIBS_ROOT/openssl/$abi/lib/libcrypto.a" ]; then
+            cache_complete=0
+            break
+        fi
+    done
+    if [ "$cache_complete" -eq 1 ]; then
+        echo "OpenSSL artifacts are already cached for $EXPECTED_MARKER."
+        exit 0
+    fi
+fi
 
 archs=(arm arm64 x86 x86_64)
-for arch in ${archs[@]}; do
+for arch in "${archs[@]}"; do
     case ${arch} in
         "arm")
             architecture=android-arm
@@ -40,17 +58,21 @@ for arch in ${archs[@]}; do
             ;;
     esac
 
-    TARGET_DIR=$EXTERNAL_LIBS_ROOT/openssl/$ANDROID_ABI
+    TARGET_DIR="$EXTERNAL_LIBS_ROOT/openssl/$ANDROID_ABI"
 
-    mkdir -p $TARGET_DIR
+    mkdir -p "$TARGET_DIR"
     echo "building for ${arch}"
 
-    ./Configure ${architecture} -D__ANDROID_API__=$ANDROID_API --prefix=${TARGET_DIR} -no-shared -no-asm -no-zlib -no-comp -no-dgram -no-filenames -no-cms
+    ./Configure "$architecture" -D__ANDROID_API__="$ANDROID_API" --prefix="$TARGET_DIR" \
+        -no-shared -no-asm -no-zlib -no-comp -no-dgram -no-filenames -no-cms
 
     make -j 4
     make install
     make clean
 
 done
+
+mkdir -p "$(dirname "$BUILD_MARKER")"
+printf '%s\n' "$EXPECTED_MARKER" > "$BUILD_MARKER"
 
 exit 0
