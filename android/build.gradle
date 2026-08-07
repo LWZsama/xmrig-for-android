@@ -9,7 +9,7 @@ buildscript {
         compileSdkVersion = 34
         targetSdkVersion = 34
         ndkVersion = "21.4.7075529"
-        kotlinVersion = '1.5.0'
+        kotlinVersion = '1.5.31'
     }
     repositories {
         google()
@@ -17,7 +17,7 @@ buildscript {
     }
     dependencies {
         classpath('com.android.tools.build:gradle:7.0.4')
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.31")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("de.undercouch:gradle-download-task:4.1.2")
         classpath("org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion")
     }
