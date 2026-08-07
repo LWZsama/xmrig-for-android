@@ -2,14 +2,17 @@ package com.xmrigforandroid;
 
 import com.facebook.react.ReactActivity;
 
-import android.content.Intent;
-import android.content.IntentFilter;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
 
 import org.devio.rn.splashscreen.SplashScreen;
 
 public class MainActivity extends ReactActivity {
+
+  private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1001;
 
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule
@@ -24,14 +27,17 @@ public class MainActivity extends ReactActivity {
   protected void onCreate(Bundle savedInstanceState) {
     SplashScreen.show(this);  // here
     super.onCreate(null);
+    requestNotificationPermissionIfNeeded();
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+  }
 
-    IntentFilter batterFilters = new IntentFilter();
-    batterFilters.addAction(Intent.ACTION_BATTERY_CHANGED);
-    batterFilters.addAction(Intent.ACTION_BATTERY_LOW);
-    batterFilters.addAction(Intent.ACTION_BATTERY_OKAY);
-    batterFilters.addAction(Intent.ACTION_POWER_CONNECTED);
-    batterFilters.addAction(Intent.ACTION_POWER_DISCONNECTED);
-    registerReceiver(new PowerMonitorReceiver(), batterFilters);
+  private void requestNotificationPermissionIfNeeded() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED) {
+      requestPermissions(
+          new String[] {Manifest.permission.POST_NOTIFICATIONS},
+          NOTIFICATION_PERMISSION_REQUEST_CODE);
+    }
   }
 }

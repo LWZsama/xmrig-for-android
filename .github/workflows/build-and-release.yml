@@ -1,0 +1,320 @@
+name: Build & Release
+
+on:
+  repository_dispatch:
+    types: [xmrig-release-updated]
+  workflow_dispatch:
+    inputs:
+      xmrig_version:
+        description: "Optional XMRig tag for a manual build, for example v6.26.0"
+        required: false
+        type: string
+      xmrig_mo_version:
+        description: "Optional MoneroOcean XMRig tag for a manual build"
+        required: false
+        type: string
+
+concurrency:
+  group: build-and-release-main
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      REQUESTED_XMRIG: ${{ github.event.client_payload.xmrig_version || inputs.xmrig_version || '' }}
+      REQUESTED_XMRIG_MO: ${{ github.event.client_payload.xmrig_mo_version || inputs.xmrig_mo_version || '' }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      CCACHE_COMPILERCHECK: content
+      CCACHE_BASEDIR: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-${{ runner.arch }}-ccache-v1
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-ccache-v1
+            ${{ runner.os }}-${{ runner.arch }}-ccache
+            ${{ runner.os }}-ccache
+          append-timestamp: true
+          variant: ccache
+          verbose: 1
+          max-size: "4G"
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android/sdk/ndk/27*
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: python3 -m pip install setuptools
+
+      - name: Set up Android NDK
+        id: setup_ndk
+        uses: nttld/setup-ndk@v1.2.0
+        with:
+          ndk-version: r21e
+
+      - name: Restore upstream source Git metadata
+        id: native_sources_cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            xmrig/lib-builder/build/src/xmrig/.git
+            xmrig/lib-builder/build/src/xmrig-mo/.git
+            xmrig/lib-builder/build/src/libuv/.git
+            xmrig/lib-builder/build/src/openssl-*.tar.gz
+          key: ${{ runner.os }}-${{ runner.arch }}-native-sources-v1-${{ hashFiles('xmrig/lib-builder/script/xmrig-fetch.sh', 'xmrig/lib-builder/script/xmrig-mo-fetch.sh', 'xmrig/lib-builder/script/libuv-fetch.sh', 'xmrig/lib-builder/xmrig.patch') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-native-sources-v1-
+
+      - name: Restore native dependency artifacts
+        id: native_deps_cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            xmrig/lib-builder/build/build/libuv
+            xmrig/lib-builder/build/build/openssl
+          key: ${{ runner.os }}-${{ runner.arch }}-native-deps-ndk-r21e-${{ hashFiles('xmrig/lib-builder/Makefile', 'xmrig/lib-builder/script/env.sh', 'xmrig/lib-builder/script/toolchain-build.sh', 'xmrig/lib-builder/script/toolchains_path.py', 'xmrig/lib-builder/script/libuv-fetch.sh', 'xmrig/lib-builder/script/libuv-build.sh', 'xmrig/lib-builder/script/openssl-fetch.sh', 'xmrig/lib-builder/script/openssl-build.sh') }}
+
+      - name: Report cache restore status
+        run: |
+          echo "Native source cache exact hit: ${{ steps.native_sources_cache.outputs.cache-hit }}"
+          echo "Native dependency cache exact hit: ${{ steps.native_deps_cache.outputs.cache-hit }}"
+          ccache -p | grep -E 'cache_dir|compiler_check|base_dir|max_size' || true
+
+      - name: Set up JDK 17
+        id: setup_java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle and restore build cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: enhanced
+          cache-read-only: false
+          cache-cleanup: on-success
+          validate-wrappers: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: yarn.lock
+
+      - name: Restore Node modules
+        id: node_modules_cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ runner.arch }}-node20-modules-${{ hashFiles('package.json', 'yarn.lock') }}
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --prefer-offline --non-interactive
+
+      - name: Report JavaScript cache status
+        run: |
+          echo "Node modules exact hit: ${{ steps.node_modules_cache.outputs.cache-hit }}"
+
+      - name: Prepare upstream source versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CURRENT_XMRIG="$(sed -n 's/^version="\([^"]*\)"/\1/p' xmrig/lib-builder/script/xmrig-fetch.sh)"
+          CURRENT_XMRIG_MO="$(sed -n 's/^version="\([^"]*\)"/\1/p' xmrig/lib-builder/script/xmrig-mo-fetch.sh)"
+          TARGET_XMRIG="${REQUESTED_XMRIG:-$CURRENT_XMRIG}"
+          TARGET_XMRIG_MO="${REQUESTED_XMRIG_MO:-$CURRENT_XMRIG_MO}"
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          CURRENT_TAG="v${CURRENT_VERSION}"
+
+          if git ls-remote --exit-code origin "refs/tags/${CURRENT_TAG}" >/dev/null 2>&1; then
+            RELEASE_TAG_EXISTS=1
+            echo "Release tag ${CURRENT_TAG} already exists; reserving the next patch version before building."
+          else
+            TAG_CHECK_STATUS=$?
+            if [[ "$TAG_CHECK_STATUS" -ne 2 ]]; then
+              echo "Unable to verify whether release tag ${CURRENT_TAG} exists (git ls-remote exit ${TAG_CHECK_STATUS})." >&2
+              exit "$TAG_CHECK_STATUS"
+            fi
+            RELEASE_TAG_EXISTS=0
+          fi
+
+          [[ "$TARGET_XMRIG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$TARGET_XMRIG_MO" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[[:alnum:].-]+)?$ ]]
+
+          python3 - "$CURRENT_XMRIG" "$CURRENT_XMRIG_MO" "$TARGET_XMRIG" "$TARGET_XMRIG_MO" "$RELEASE_TAG_EXISTS" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          current_xmrig, current_xmrig_mo, target_xmrig, target_xmrig_mo, release_tag_exists = sys.argv[1:]
+          upstream_changed = target_xmrig != current_xmrig or target_xmrig_mo != current_xmrig_mo
+          if upstream_changed or release_tag_exists == "1":
+              version_path = Path("version.properties")
+              version_text = version_path.read_text()
+              major = int(re.search(r"^majorVersion=(\d+)$", version_text, re.MULTILINE).group(1))
+              minor = int(re.search(r"^minorVersion=(\d+)$", version_text, re.MULTILINE).group(1))
+              patch = int(re.search(r"^patchVersion=(\d+)$", version_text, re.MULTILINE).group(1)) + 1
+              if patch > 99:
+                  minor += 1
+                  patch = 0
+              version_text = re.sub(r"^minorVersion=\d+$", f"minorVersion={minor}", version_text, flags=re.MULTILINE)
+              version_text = re.sub(r"^patchVersion=\d+$", f"patchVersion={patch}", version_text, flags=re.MULTILINE)
+              version_path.write_text(version_text)
+              if release_tag_exists == "1":
+                  print("Existing release tag detected; bumped the app patch version before building.")
+
+          if upstream_changed:
+              for filename, version in [
+                  ("xmrig/lib-builder/script/xmrig-fetch.sh", target_xmrig),
+                  ("xmrig/lib-builder/script/xmrig-mo-fetch.sh", target_xmrig_mo),
+              ]:
+                  path = Path(filename)
+                  updated, count = re.subn(
+                      r'^version="[^"]+"$',
+                      f'version="{version}"',
+                      path.read_text(),
+                      count=1,
+                      flags=re.MULTILINE,
+                  )
+                  if count != 1:
+                      raise SystemExit(f"could not update version in {path}")
+                  path.write_text(updated)
+          PY
+
+          node update_version.js
+          echo "Building XMRig $TARGET_XMRIG and MoneroOcean $TARGET_XMRIG_MO."
+
+      - name: Build XMRig, libUV and OpenSSL
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup_ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.setup_ndk.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          cd xmrig/lib-builder
+          time make all
+
+      - name: Report native ccache statistics
+        if: always()
+        run: ccache -s
+
+      - name: Prepare stable release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "ANDROID_KEYSTORE_BASE64 is not configured" >&2; exit 1; }
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+          test -s android/app/release.keystore
+          chmod 600 android/app/release.keystore
+
+      - name: Build signed Android Bundle (AAB)
+        env:
+          JAVA_HOME: ${{ steps.setup_java.outputs.path }}
+          MYAPP_UPLOAD_STORE_FILE: release.keystore
+          MYAPP_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MYAPP_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MYAPP_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:bundleRelease --no-daemon --build-cache --stacktrace --info
+
+      - name: Generate signed Universal APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD is not configured" >&2; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "ANDROID_KEY_ALIAS is not configured" >&2; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "ANDROID_KEY_PASSWORD is not configured" >&2; exit 1; }
+          mkdir -p /tmp/bundletool /tmp/apks
+          curl --fail --location --retry 3 \
+            -o /tmp/bundletool/bundletool.jar \
+            https://github.com/google/bundletool/releases/download/1.15.6/bundletool-all-1.15.6.jar
+          java -jar /tmp/bundletool/bundletool.jar build-apks \
+            --mode=universal \
+            --bundle=./android/app/build/outputs/bundle/release/app-release.aab \
+            --output=./android/app/build/outputs/bundle/release/app-release.apks \
+            --ks=./android/app/release.keystore \
+            --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
+            --ks-key-alias="$ANDROID_KEY_ALIAS" \
+            --key-pass="pass:$ANDROID_KEY_PASSWORD"
+          unzip -o ./android/app/build/outputs/bundle/release/app-release.apks -d /tmp/apks
+          mv /tmp/apks/universal.apk ./android/app/build/outputs/bundle/release/xmrig-for-android.apk
+          mv ./android/app/build/outputs/bundle/release/app-release.aab ./android/app/build/outputs/bundle/release/xmrig-for-android.aab
+
+      - name: Verify release signatures
+        run: |
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs ./android/app/build/outputs/bundle/release/xmrig-for-android.apk
+          jarsigner -verify ./android/app/build/outputs/bundle/release/xmrig-for-android.aab
+
+      - name: Persist successful upstream update
+        id: persist
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            version.properties \
+            package.json \
+            src/version.ts \
+            xmrig/lib-builder/script/xmrig-fetch.sh \
+            xmrig/lib-builder/script/xmrig-mo-fetch.sh \
+            android/app/src/main/jniLibs
+
+          if git diff --cached --quiet; then
+            echo "No source or native artifact changes to persist."
+          else
+            git commit -m "chore(xmrig): update upstream sources [skip ci]"
+            git push origin "HEAD:${DEFAULT_BRANCH}"
+          fi
+          echo "target_commitish=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Get current version tag
+        id: get_tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          if git ls-remote --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Release tag ${TAG} already exists; bump the app version before releasing." >&2
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          target_commitish: ${{ steps.persist.outputs.target_commitish }}
+          name: XMRig for Android ${{ steps.get_tag.outputs.tag }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            ./android/app/build/outputs/bundle/release/xmrig-for-android.apk
+            ./android/app/build/outputs/bundle/release/xmrig-for-android.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

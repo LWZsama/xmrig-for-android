@@ -10,11 +10,13 @@ class CPUTemperatureHelper {
             val dirs = File("/sys/devices/virtual/thermal/").listFiles()
             dirs?.forEach {
                 try {
-                    val typeReader = RandomAccessFile(it.resolve("type"), "r")
-                    val typeReaderVal = typeReader.readLine().toString()
+                    val typeReaderVal = RandomAccessFile(it.resolve("type"), "r").use { reader ->
+                        reader.readLine().orEmpty()
+                    }
                     if (typeReaderVal.lowercase().contains("cpu")) {
-                        val reader = RandomAccessFile(it.resolve("temp"), "r")
-                        val temp = reader.readLine().toFloat()
+                        val temp = RandomAccessFile(it.resolve("temp"), "r").use { reader ->
+                            reader.readLine().toFloat()
+                        }
                         tempPath = it.resolve("temp").toString()
                         return temp / 1000.0f
                     }
@@ -33,8 +35,9 @@ class CPUTemperatureHelper {
                 return searchCpuTemperature()
             }
             try {
-                val reader = RandomAccessFile(tempPath, "r")
-                val temp = reader.readLine().toFloat()
+                val temp = RandomAccessFile(tempPath, "r").use { reader ->
+                    reader.readLine().toFloat()
+                }
                 return temp / 1000.0f
             } catch (e: Exception) {
 

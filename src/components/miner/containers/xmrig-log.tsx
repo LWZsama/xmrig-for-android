@@ -1,10 +1,10 @@
 /* eslint-disable react/jsx-props-no-spreading */
 import React from 'react';
 import { StyleSheet } from 'react-native';
+import _ from 'lodash';
 import { View, ViewProps } from 'react-native-ui-lib';
 import { AnsiComponent } from 'react-native-ansi-view';
 import { ILoggerLine } from '../../../core/logger';
-import _ from 'lodash';
 
 type LogViewProps = ViewProps & {
     data: ILoggerLine[];

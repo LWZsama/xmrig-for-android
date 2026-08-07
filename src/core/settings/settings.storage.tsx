@@ -5,9 +5,11 @@ export const SettingsStorageInit = async (initalState:ISettings):Promise<ISettin
   try {
     const jsonValue:string | null = await AsyncStorage.getItem('settings');
     if (jsonValue) {
+      const storedSettings:ISettings = JSON.parse(jsonValue);
       return {
         ...initalState,
-        ...JSON.parse(jsonValue),
+        ...storedSettings,
+        donation: 0,
       };
     }
   } catch (e) {

@@ -33,8 +33,8 @@ export const MineXMR:React.FC<IPool> = ({ onChange }) => {
         showCharCounter
         maxLength={128}
         fieldStyle={sharedStyles.withUnderline}
-        hint="46gPyHjLPPM8HaayVyvCDcF2..."
-        placeholder="46gPyHjLPPM8HaayVyvCDcF2..."
+        hint="Your Monero wallet address"
+        placeholder="Your Monero wallet address"
         marginB-10
         numberOfLines={1}
         textBreakStrategy="simple"

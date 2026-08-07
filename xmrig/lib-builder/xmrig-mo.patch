@@ -15,12 +15,18 @@ diff --git a/src/base/net/stratum/Pools.cpp b/src/base/net/stratum/Pools.cpp
 diff --git a/src/backend/cpu/platform/BasicCpuInfo_arm.cpp b/src/backend/cpu/platform/BasicCpuInfo_arm.cpp
 --- a/src/backend/cpu/platform/BasicCpuInfo_arm.cpp
 +++ b/src/backend/cpu/platform/BasicCpuInfo_arm.cpp
-@@ -19,3 +19,4 @@
+@@ -17,6 +17,7 @@
+  */
+ 
  #include <array>
 +#include <algorithm>
  #include <cstring>
  #include <thread>
-@@ -52,10 +52,15 @@
+ 
+@@ -49,18 +50,23 @@ const char *xmrig::BasicCpuInfo::backend() const
+ }
+ 
+ 
 -xmrig::CpuThreads xmrig::BasicCpuInfo::threads(const Algorithm &algorithm, uint32_t) const
 +xmrig::CpuThreads xmrig::BasicCpuInfo::threads(const Algorithm &algorithm, uint32_t limit) const
  {
@@ -30,12 +36,18 @@ diff --git a/src/backend/cpu/platform/BasicCpuInfo_arm.cpp b/src/backend/cpu/pla
 +        : std::max<size_t>(1, (threads() * normalizedLimit + 99U) / 100U);
 +
  #   ifdef XMRIG_ALGO_GHOSTRIDER
-     if (algorithm.family() == Algorithm::GHOSTRIDER) {
--        return CpuThreads(threads(), 8);
-+        return CpuThreads(count, 8);
+     // MoneroOcean: Flex/KCN shares GhostRider family detection but is single-hash.
+     switch (algorithm.id()) {
+-        case Algorithm::GHOSTRIDER_RTM: return CpuThreads(threads(), 8);
+-        case Algorithm::FLEX_KCN:       return CpuThreads(threads(), 1);
++        case Algorithm::GHOSTRIDER_RTM: return CpuThreads(count, 8);
++        case Algorithm::FLEX_KCN:       return CpuThreads(count, 1);
      }
+     // End MoneroOcean
  #   endif
  
 -    return CpuThreads(threads());
 +    return CpuThreads(count);
  }
+ 
+ 

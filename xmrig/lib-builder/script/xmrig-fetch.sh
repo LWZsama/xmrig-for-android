@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-source script/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
-cd $EXTERNAL_LIBS_BUILD_ROOT
+mkdir -p "$EXTERNAL_LIBS_BUILD_ROOT"
+cd "$EXTERNAL_LIBS_BUILD_ROOT"
 
-version="v6.17.0"
+version="v6.26.0"
+REPOSITORY="$EXTERNAL_LIBS_BUILD_ROOT/xmrig"
+PATCH_FILE="$SCRIPT_DIR/../xmrig.patch"
 
-if [ ! -d "xmrig" ]; then
-  git clone https://github.com/xmrig/xmrig.git -b ${version}
-  cd ..
-  cd ..
-  patch build/src/xmrig/src/net/strategies/DonateStrategy.cpp ./xmrig.patch --force
+if [ ! -d "$REPOSITORY/.git" ]; then
+  rm -rf "$REPOSITORY"
+  git clone --depth 1 --branch "$version" https://github.com/xmrig/xmrig.git "$REPOSITORY"
 else
-  cd xmrig
-  git checkout ${version}
-  cd ..
-  cd ..
-  cd ..
-  patch build/src/xmrig/src/net/strategies/DonateStrategy.cpp ./xmrig.patch --force
+  git -C "$REPOSITORY" fetch --tags origin "$version"
+  git -C "$REPOSITORY" reset --hard "$version"
+  git -C "$REPOSITORY" clean -fdx
 fi
+
+git -C "$REPOSITORY" apply --check --whitespace=error-all "$PATCH_FILE"
+git -C "$REPOSITORY" apply "$PATCH_FILE"

@@ -13,6 +13,26 @@ props.each { prop ->
 project.ext.set("versionName", "${project.ext.majorVersion}.${project.ext.minorVersion}.${project.ext.patchVersion}")
 project.ext.set("versionCode", project.ext.majorVersion as Integer * 1000 + project.ext.minorVersion as Integer * 100 + project.ext.patchVersion as Integer)
 
+// Release signing is supplied by CI secrets or equivalent local Gradle properties.
+// Never commit a keystore or fall back to a generated key: updates must use the same key.
+def propertyOrEnvironment = { String name ->
+    project.findProperty(name) ?: System.getenv(name)
+}
+def releaseStoreFilePath = propertyOrEnvironment("MYAPP_UPLOAD_STORE_FILE")
+def releaseStorePassword = propertyOrEnvironment("MYAPP_UPLOAD_STORE_PASSWORD")
+def releaseKeyAlias = propertyOrEnvironment("MYAPP_UPLOAD_KEY_ALIAS")
+def releaseKeyPassword = propertyOrEnvironment("MYAPP_UPLOAD_KEY_PASSWORD")
+def allowUnsignedRelease = (project.findProperty("allowUnsignedRelease") ?: "false").toString().toBoolean()
+def releaseSigningConfigured = [
+        releaseStoreFilePath,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword
+].every { value -> value != null && value.toString().trim() }
+if (releaseSigningConfigured) {
+    releaseSigningConfigured = file(releaseStoreFilePath).isFile()
+}
+
 /**
  * The react.gradle file registers a task for each build variant (e.g. bundleDebugJsAndAssets
  * and bundleReleaseJsAndAssets).
@@ -108,7 +128,7 @@ def enableSeparateBuildPerCPUArchitecture = false
 /**
  * Run Proguard to shrink the Java bytecode in release builds.
  */
-def enableProguardInReleaseBuilds = true
+def enableProguardInReleaseBuilds = false
 
 /**
  * The preferred build flavor of JavaScriptCore.
@@ -166,26 +186,16 @@ android {
             include (*reactNativeArchitectures())
         }
     }
-    /*signingConfigs {
-        debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
-        }
-	release {
-	    storeFile file('debug.keystore')
-        storePassword 'android'
-        keyAlias 'androiddebugkey'
-        keyPassword 'android'
-        if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
-                storeFile file(MYAPP_UPLOAD_STORE_FILE)
-                storePassword MYAPP_UPLOAD_STORE_PASSWORD
-                keyAlias MYAPP_UPLOAD_KEY_ALIAS
-                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+    signingConfigs {
+        release {
+            if (releaseSigningConfigured) {
+                storeFile file(releaseStoreFilePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
             }
-	    }
-    }*/
+        }
+    }
 
     buildTypes {
         debug {
@@ -199,11 +209,11 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            //signingConfig signingConfigs.release
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled enableProguardInReleaseBuilds
-            shrinkResources true
+            shrinkResources false
             debuggable false
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
@@ -227,9 +237,24 @@ android {
 
 }
 
+gradle.taskGraph.whenReady { taskGraph ->
+    def buildsSignedRelease = taskGraph.allTasks.any { task ->
+        def taskName = task.name.toLowerCase()
+        taskName.contains("release") &&
+                (taskName.startsWith("assemble") || taskName.startsWith("bundle") || taskName.startsWith("package"))
+    }
+    if (buildsSignedRelease && !releaseSigningConfigured && !allowUnsignedRelease) {
+        throw new GradleException(
+                "Release signing is not configured. Supply MYAPP_UPLOAD_STORE_FILE, " +
+                        "MYAPP_UPLOAD_STORE_PASSWORD, MYAPP_UPLOAD_KEY_ALIAS and " +
+                        "MYAPP_UPLOAD_KEY_PASSWORD, or use -PallowUnsignedRelease=true only for validation."
+        )
+    }
+}
+
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    implementation "com.facebook.react:react-native:+"  // From node_modules
+    implementation "com.facebook.react:react-native:0.68.0"  // From node_modules
     //implementation project(':ReactAndroid')
 
     implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.0.0"
@@ -317,4 +342,12 @@ def isNewArchitectureEnabled() {
     // - Invoke gradle with `-newArchEnabled=true`
     // - Set an environment variable `ORG_GRADLE_PROJECT_newArchEnabled=true`
     return project.hasProperty("newArchEnabled") && project.newArchEnabled == "true"
+}
+
+afterEvaluate {
+    def preBundle = tasks.findByName("buildReleasePreBundle")
+    def bundleJs = tasks.findByName("bundleReleaseJsAndAssets")
+    if (preBundle != null && bundleJs != null) {
+        preBundle.dependsOn(bundleJs)
+    }
 }

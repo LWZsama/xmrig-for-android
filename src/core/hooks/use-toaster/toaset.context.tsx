@@ -29,10 +29,6 @@ export const ToasterProvider: React.FC = ({ children }) => {
     (prevState) => [...prevState, handlers(props)],
   );
 
-  React.useEffect(() => {
-    console.log('toasts in Q', toasts.length);
-  }, [toasts]);
-
   return (
     // eslint-disable-next-line react/jsx-no-constructed-context-values
     <ToasterContext.Provider value={{ addToast }}>

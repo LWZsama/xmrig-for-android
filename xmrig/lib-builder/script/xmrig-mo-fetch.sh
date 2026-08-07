@@ -1,16 +1,42 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-source script/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
-cd $EXTERNAL_LIBS_BUILD_ROOT
+mkdir -p "$EXTERNAL_LIBS_BUILD_ROOT"
+cd "$EXTERNAL_LIBS_BUILD_ROOT"
 
-version="v6.16.5-mo1"
+version="v6.26.0-mo4"
+REPOSITORY="$EXTERNAL_LIBS_BUILD_ROOT/xmrig-mo"
+PATCH_FILE="$SCRIPT_DIR/../xmrig-mo.patch"
 
-if [ ! -d "xmrig-mo" ]; then
-  git clone https://github.com/MoneroOcean/xmrig.git -b ${version} xmrig-mo
+if [ ! -d "$REPOSITORY/.git" ]; then
+  rm -rf "$REPOSITORY"
+  git clone --depth 1 --branch "$version" https://github.com/MoneroOcean/xmrig.git "$REPOSITORY"
 else
-  cd xmrig-mo
-  git checkout ${version}
+  git -C "$REPOSITORY" fetch --tags origin "$version"
+  git -C "$REPOSITORY" reset --hard "$version"
+  git -C "$REPOSITORY" clean -fdx
 fi
+
+python3 - "$REPOSITORY/src/crypto/flex/flex_keccak.h" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text()
+macro = "#define flex_enc32le_aligned sph_enc32le_aligned\n"
+if macro not in text:
+    needle = '#include "../ghostrider/sph_types.h"\n'
+    if needle not in text:
+        raise SystemExit(f"compatibility include not found in {path}")
+    text = text.replace(needle, needle + macro, 1)
+    path.write_text(text)
+if text.count(macro) != 1:
+    raise SystemExit(f"compatibility macro count is not one in {path}")
+PY
+
+git -C "$REPOSITORY" apply --check --whitespace=error-all "$PATCH_FILE"
+git -C "$REPOSITORY" apply "$PATCH_FILE"

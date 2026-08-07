@@ -1,21 +1,34 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-source script/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
-cd $EXTERNAL_LIBS_BUILD_ROOT/xmrig
+cd "$EXTERNAL_LIBS_BUILD_ROOT/xmrig"
 sed -e "s/pthread rt dl log/dl/g" CMakeLists.txt > TempCMakeLists.txt
 rm -f CMakeLists.txt
 mv TempCMakeLists.txt CMakeLists.txt
-mkdir build && cd build
+mkdir -p build
 
-TOOLCHAIN=$ANDROID_HOME/ndk/$NDK_VERSION/build/cmake/android.toolchain.cmake
-CMAKE=$ANDROID_HOME/cmake/3.18.1/bin/cmake
+TOOLCHAIN=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
+CMAKE="$(command -v cmake || true)"
+if [ -z "$CMAKE" ]; then
+    CMAKE="${ANDROID_HOME:-}/cmake/3.18.1/bin/cmake"
+fi
+if [ ! -x "$CMAKE" ]; then
+    echo "cmake was not found" >&2
+    exit 1
+fi
 ANDROID_PLATFORM=android-29
+CMAKE_LAUNCHER_ARGS=()
+if command -v ccache >/dev/null 2>&1; then
+    CMAKE_LAUNCHER_ARGS+=("-DCMAKE_C_COMPILER_LAUNCHER=ccache")
+    CMAKE_LAUNCHER_ARGS+=("-DCMAKE_CXX_COMPILER_LAUNCHER=ccache")
+fi
 
 archs=(arm arm64 x86 x86_64)
-for arch in ${archs[@]}; do
+for arch in "${archs[@]}"; do
     case ${arch} in
         "arm")
             target_host=arm-linux-androideabi
@@ -42,37 +55,38 @@ for arch in ${archs[@]}; do
             ;;
     esac
 
-    mkdir -p $EXTERNAL_LIBS_BUILD_ROOT/xmrig/build/$ANDROID_ABI
-    cd $EXTERNAL_LIBS_BUILD_ROOT/xmrig/build/$ANDROID_ABI
+    mkdir -p "$EXTERNAL_LIBS_BUILD_ROOT/xmrig/build/$ANDROID_ABI"
+    cd "$EXTERNAL_LIBS_BUILD_ROOT/xmrig/build/$ANDROID_ABI"
 
-    TARGET_DIR=$EXTERNAL_LIBS_ROOT/xmrig/$ANDROID_ABI
+    TARGET_DIR="$EXTERNAL_LIBS_ROOT/xmrig/$ANDROID_ABI"
 
 
-    if [ -f "$TARGET_DIR/lib/xmrig" ]; then
+    if [ -f "$EXTERNAL_LIBS_BUILD_ROOT/xmrig/build/$ANDROID_ABI/xmrig" ]; then
       continue
     fi
 
-    mkdir -p $TARGET_DIR
+    mkdir -p "$TARGET_DIR"
     echo "building for ${arch}"
 
-    $CMAKE -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN \
+    "$CMAKE" -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+        ${CMAKE_LAUNCHER_ARGS[@]+"${CMAKE_LAUNCHER_ARGS[@]}"} \
         -DANDROID_ABI="$ANDROID_ABI" \
         -DANDROID_PLATFORM=$ANDROID_PLATFORM \
-        -DCMAKE_INSTALL_PREFIX=$TARGET_DIR \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$TARGET_DIR" \
         -DANDROID_CROSS_COMPILE=ON \
         -DBUILD_SHARED_LIBS=OFF \
         -DWITH_OPENCL=OFF \
         -DWITH_CUDA=OFF \
         -DBUILD_STATIC=OFF \
         -DWITH_TLS=ON \
-        -DHWLOC_LIBRARY="$EXTERNAL_LIBS_ROOT/hwloc/$ANDROID_ABI/lib/libhwloc.a" \
-        -DHWLOC_INCLUDE_DIR="$EXTERNAL_LIBS_ROOT/hwloc/$ANDROID_ABI/include " \
+        -DWITH_HWLOC=OFF \
         -DUV_LIBRARY="$EXTERNAL_LIBS_ROOT/libuv/$ANDROID_ABI/lib/libuv_a.a" \
-        -DUV_INCLUDE_DIR="$EXTERNAL_LIBS_ROOT/libuv/$ANDROID_ABI/include " \
+        -DUV_INCLUDE_DIR="$EXTERNAL_LIBS_ROOT/libuv/$ANDROID_ABI/include" \
         -DOPENSSL_SSL_LIBRARY="$EXTERNAL_LIBS_ROOT/openssl/$ANDROID_ABI/lib/libssl.a" \
         -DOPENSSL_CRYPTO_LIBRARY="$EXTERNAL_LIBS_ROOT/openssl/$ANDROID_ABI/lib/libcrypto.a" \
-        -DOPENSSL_INCLUDE_DIR="$EXTERNAL_LIBS_ROOT/openssl/$ANDROID_ABI/include " \
-        ../../ && make -j 4  && make install && make clean
+        -DOPENSSL_INCLUDE_DIR="$EXTERNAL_LIBS_ROOT/openssl/$ANDROID_ABI/include" \
+        ../../ && make -j 4
 
 done
 

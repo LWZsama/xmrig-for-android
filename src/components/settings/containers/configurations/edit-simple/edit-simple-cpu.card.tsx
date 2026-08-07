@@ -1,4 +1,3 @@
-import { merge } from 'lodash/fp';
 import React from 'react';
 import {
   Card, Colors, Incubator, Switch, Text, View, RadioGroup, RadioButton, SkeletonView,
@@ -9,24 +8,39 @@ import {
   cpuValidator,
   maxThreadsHintValidator, priorityValidator,
 } from '../../../../../core/utils/validators';
-import { RandomXMode } from '../../../../../core/settings/settings.interface';
+import {
+  IConfiguratioPropertiesCPU, RandomXMode,
+} from '../../../../../core/settings/settings.interface';
+import { updateSimpleConfigurationProperties } from '../../../../../core/settings/update-configuration';
 
-export const EditSimpleCPUCard: React.FC<EditSimpleCardProps> = (
+const EditSimpleCPUCardComponent: React.FC<EditSimpleCardProps> = (
   { setLocalState, localState },
 ) => {
-  const [valid, setValid] = React.useState<boolean>(
-    cpuValidator.validate(localState.properties?.cpu || {}).error == null,
+  const cpu = localState.properties?.cpu;
+  const valid = React.useMemo(
+    () => cpuValidator.validate(cpu || {}).error == null,
+    [cpu],
+  );
+
+  const [priority, setPriority] = React.useState<string>(cpu?.priority?.toString() || '');
+  const [maxThreadsHint, setMaxThreadsHint] = React.useState<string>(
+    cpu?.max_threads_hint?.toString() || '',
   );
 
   React.useEffect(() => {
-    setValid(
-      cpuValidator.validate(localState.properties?.cpu || {}).error == null,
-    );
-  }, [localState.properties]);
+    setPriority(cpu?.priority?.toString() || '');
+    setMaxThreadsHint(cpu?.max_threads_hint?.toString() || '');
+  }, [cpu]);
+
+  const updateCPU = React.useCallback((changes: Partial<IConfiguratioPropertiesCPU>) => {
+    setLocalState((oldState) => updateSimpleConfigurationProperties(oldState, {
+      cpu: { ...oldState.properties?.cpu, ...changes },
+    }));
+  }, [setLocalState]);
 
   return (
     <Card
-      enableShadow
+      enableShadow={false}
       selected={!valid}
       selectionOptions={{
         hideIndicator: true,
@@ -47,37 +61,29 @@ export const EditSimpleCPUCard: React.FC<EditSimpleCardProps> = (
             <Text text80 $textNeutralLight flex column marginB-5>Yield</Text>
             <Switch
               value={localState.properties?.cpu?.yield}
-              onValueChange={(value) => setLocalState((oldState) => merge(
-                oldState,
-                {
-                  properties: {
-                    cpu: {
-                      yield: value,
-                    },
-                  },
-                },
-              ))}
+              onValueChange={(value) => setLocalState(
+                (oldState) => updateSimpleConfigurationProperties(
+                  oldState,
+                  { cpu: { ...oldState.properties?.cpu, yield: value } },
+                ),
+              )}
             />
           </View>
           <Text text100 $textNeutralLight row>
-            Prefer system better system response/stability `ON` (default value)
-            or maximum hashrate `OFF`.
+            Maximum hashrate `OFF` (optimized default); turn `ON` only when
+            interactive system response is more important.
           </Text>
         </View>
         <View flex paddingT-10>
           <View marginB-10>
             <Text text80 $textNeutralLight flex row marginB-2>RandomX Mode</Text>
             <RadioGroup
-              onValueChange={(value: RandomXMode) => setLocalState((oldState) => merge(
-                oldState,
-                {
-                  properties: {
-                    cpu: {
-                      random_x_mode: value,
-                    },
-                  },
-                },
-              ))}
+              onValueChange={(value: RandomXMode) => setLocalState(
+                (oldState) => updateSimpleConfigurationProperties(
+                  oldState,
+                  { cpu: { ...oldState.properties?.cpu, random_x_mode: value } },
+                ),
+              )}
               initialValue={localState.properties?.cpu?.random_x_mode}
               marginB-5
             >
@@ -97,17 +103,9 @@ export const EditSimpleCPUCard: React.FC<EditSimpleCardProps> = (
           <Incubator.TextField
             placeholder="Priority"
             floatingPlaceholder
-            value={localState.properties?.cpu?.priority?.toString() || undefined}
-            onChangeText={(text) => setLocalState((oldState) => merge(
-              oldState,
-              {
-                properties: {
-                  cpu: {
-                    priority: text,
-                  },
-                },
-              },
-            ))}
+            value={priority}
+            onChangeText={setPriority}
+            onBlur={() => updateCPU({ priority: priority as unknown as number })}
             validate={
               (value: string) => priorityValidator
                 .validate(value)
@@ -115,10 +113,10 @@ export const EditSimpleCPUCard: React.FC<EditSimpleCardProps> = (
             }
             validationMessage={
               priorityValidator
-                .validate(localState.properties?.cpu?.priority)
+                .validate(priority)
                 .error?.message
             }
-            validateOnChange
+            validateOnChange={false}
             enableErrors
             floatOnFocus
             showCharCounter
@@ -129,24 +127,16 @@ export const EditSimpleCPUCard: React.FC<EditSimpleCardProps> = (
           />
           <Text text100 $textNeutralLight row>
             Threads priority, from 1 (lowest) to 5 (highest).
-            Default: null - doesn't change priority.
+            Optimized default: 2 (normal priority).
           </Text>
         </View>
         <View flex paddingT-10>
           <Incubator.TextField
             placeholder="Max Threads Hint"
             floatingPlaceholder
-            value={localState.properties?.cpu?.max_threads_hint?.toString() || undefined}
-            onChangeText={(text) => setLocalState((oldState) => merge(
-              oldState,
-              {
-                properties: {
-                  cpu: {
-                    max_threads_hint: text,
-                  },
-                },
-              },
-            ))}
+            value={maxThreadsHint}
+            onChangeText={setMaxThreadsHint}
+            onBlur={() => updateCPU({ max_threads_hint: maxThreadsHint as unknown as number })}
             validate={
               (value: string) => maxThreadsHintValidator
                 .validate(value)
@@ -154,10 +144,10 @@ export const EditSimpleCPUCard: React.FC<EditSimpleCardProps> = (
             }
             validationMessage={
               maxThreadsHintValidator
-                .validate(localState.properties?.cpu?.max_threads_hint)
+                .validate(maxThreadsHint)
                 .error?.message
             }
-            validateOnChange
+            validateOnChange={false}
             enableErrors
             floatOnFocus
             showCharCounter
@@ -171,12 +161,19 @@ export const EditSimpleCPUCard: React.FC<EditSimpleCardProps> = (
             For 1 core CPU this option has no effect,
             for 2 core CPU only 2 values possible 50% and 100%,
             for 4 cores: 25%, 50%, 75%, 100%. etc.
+            On ARM, XMRig also receives an automatic thread affinity profile
+            when the device exposes big.LITTLE topology information.
           </Text>
         </View>
       </View>
     </Card>
   );
 };
+
+export const EditSimpleCPUCard = React.memo(
+  EditSimpleCPUCardComponent,
+  (previous, next) => previous.localState.properties?.cpu === next.localState.properties?.cpu,
+);
 
 const styles = StyleSheet.create({
   withUnderline: {

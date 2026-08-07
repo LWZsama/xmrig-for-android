@@ -1,6 +1,8 @@
 package com.xmrigforandroid;
 
 import android.app.Application;
+import android.content.Intent;
+import android.content.IntentFilter;
 
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
@@ -55,5 +57,9 @@ public class MainApplication extends Application implements ReactApplication {
   public void onCreate() {
     super.onCreate();
     SoLoader.init(this, /* native exopackage */ false);
+
+    // ACTION_BATTERY_CHANGED is a sticky broadcast and must be registered at runtime.
+    // Register it once for the application lifetime instead of once per Activity.
+    registerReceiver(new PowerMonitorReceiver(), new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
   }
 }

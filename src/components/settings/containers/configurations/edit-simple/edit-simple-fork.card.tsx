@@ -1,4 +1,3 @@
-import { merge } from 'lodash/fp';
 import React from 'react';
 import {
   Assets,
@@ -7,7 +6,7 @@ import {
 import { EditSimpleCardProps } from './index';
 import { ISimpleConfiguration, XMRigFork } from '../../../../../core/settings/settings.interface';
 
-export const EditSimpleForkCard: React.FC<EditSimpleCardProps> = (
+const EditSimpleForkCardComponent: React.FC<EditSimpleCardProps> = (
   { setLocalState, localState },
 ) => (
   <Card>
@@ -25,12 +24,10 @@ export const EditSimpleForkCard: React.FC<EditSimpleCardProps> = (
     <View spread padding-20 paddingT-10>
       <RadioGroup
         onValueChange={(value: XMRigFork) => {
-          setLocalState((oldState: ISimpleConfiguration) => merge(
-            oldState,
-            {
-              xmrig_fork: value,
-            },
-          ));
+          setLocalState((oldState: ISimpleConfiguration) => ({
+            ...oldState,
+            xmrig_fork: value,
+          }));
         }}
         initialValue={localState.xmrig_fork}
       >
@@ -56,6 +53,11 @@ export const EditSimpleForkCard: React.FC<EditSimpleCardProps> = (
       )}
     </View>
   </Card>
+);
+
+export const EditSimpleForkCard = React.memo(
+  EditSimpleForkCardComponent,
+  (previous, next) => previous.localState.xmrig_fork === next.localState.xmrig_fork,
 );
 
 const EditSimpleForkCardSkeleton: React.FC<EditSimpleCardProps> = (props) => {

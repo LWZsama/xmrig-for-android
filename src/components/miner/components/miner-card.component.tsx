@@ -22,7 +22,9 @@ export const MinerCard:React.FC<MinerCardProps> = ({
   badgeProps = {},
 }) => (
   <Card
-    enableShadow
+    // Statistics contain many cards; Android elevation on every card causes
+    // extra compositing and is expensive while the screen is being scrolled.
+    enableShadow={false}
     flex
     style={[style, disabled ? styles.disabledCard : { overflow: 'hidden' }]}
     // eslint-disable-next-line react/jsx-props-no-spreading
@@ -60,6 +62,14 @@ export const MinerCard:React.FC<MinerCardProps> = ({
     {children}
   </Card>
 );
+
+MinerCard.defaultProps = {
+  title: undefined,
+  subTitle: undefined,
+  disabled: false,
+  cardProps: {},
+  badgeProps: {},
+};
 
 const styles = StyleSheet.create({
   disabledCard: {

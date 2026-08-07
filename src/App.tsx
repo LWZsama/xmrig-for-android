@@ -12,7 +12,9 @@ import { LoggerContextProvider } from './core/logger';
 import { ToasterProvider } from './core/hooks/use-toaster/toaset.context';
 import { LoadAssets } from './assets';
 
-enableScreens(false);
+// Keep navigation screens native-backed so inactive screens do not keep a full
+// JS view tree in the active render path.
+enableScreens(true);
 
 const AppWithSettings:React.FC = () => {
   React.useEffect(() => {

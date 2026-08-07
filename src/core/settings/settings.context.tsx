@@ -40,7 +40,7 @@ const initialState: ISettings = {
     resumeCPUTemperatureNormal: false,
     resumeCPUTemperatureNormalValue: 80.0,
   },
-  donation: 5,
+  donation: 0,
   printTime: 60,
 };
 
@@ -56,8 +56,9 @@ const defaultAlgorithems = Algorithems.reduce((acc, item) => ({
 export const defaultSimpleConfiguration: Partial<ISimpleConfiguration> = {
   properties: {
     cpu: {
-      yield: true,
-      random_x_mode: RandomXMode.LIGHT,
+      yield: false,
+      priority: 2,
+      random_x_mode: RandomXMode.AUTO,
       max_threads_hint: 100,
     },
     algos: {
@@ -87,11 +88,11 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
   const [asyncLoaderState, setAsyncLoaderState] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log('settings effect - SettingsStorageInit');
     SettingsStorageInit(initialState)
       .then((value:ISettings) => {
         const fixValue:ISettings = {
           ...value,
+          donation: 0,
           configurations: value.configurations.map((item) => {
             if (item.mode === ConfigurationMode.SIMPLE) {
               return merge(
@@ -110,7 +111,6 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
             };
           }),
         };
-        console.log('SET SET', fixValue.configurations[0]);
         settingsDispatcher({
           type: SettingsActionType.SET,
           value: {
@@ -121,11 +121,10 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
         });
         setAsyncLoaderState(true);
       })
-      .catch((e) => console.log(e));
+      .catch((e) => console.error(e));
   }, []);
 
   useEffect(() => {
-    console.log('state changed', settings, 'asyncLoaderState: ', asyncLoaderState);
     if (asyncLoaderState) {
       SettingsStorageSave(settings);
     }

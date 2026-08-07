@@ -1,20 +1,31 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-source script/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
-build_root=$EXTERNAL_LIBS_BUILD_ROOT
-PATH=$ANDROID_NDK_ROOT/build/tools/:$PATH
-
-args="--api 29 --stl=libc++"
 archs=(arm arm64 x86 x86_64)
 
-for arch in ${archs[@]}; do
-    if [ ! -d "$NDK_TOOL_DIR/$arch" ]; then
-        echo "installing $ANDROID_NDK_ROOT $arch $args"
-        make_standalone_toolchain.py $args --arch $arch --install-dir $NDK_TOOL_DIR/$arch
-        sed -i.orig "s|using ::fgetpos;|//using ::fgetpos;|" $NDK_TOOL_DIR/$arch/include/c++/4.9.x/cstdio
-        sed -i.orig "s|using ::fsetpos;|//using ::fsetpos;|" $NDK_TOOL_DIR/$arch/include/c++/4.9.x/cstdio
+for arch in "${archs[@]}"; do
+    mkdir -p "$NDK_TOOL_DIR/$arch"
+    if [ ! -e "$NDK_TOOL_DIR/$arch/bin" ]; then
+        ln -sf "$TOOLCHAINS_PATH/bin" "$NDK_TOOL_DIR/$arch/bin"
+    fi
+    if [ ! -e "$NDK_TOOL_DIR/$arch/sysroot" ] && [ -d "$TOOLCHAINS_PATH/sysroot" ]; then
+        ln -sf "$TOOLCHAINS_PATH/sysroot" "$NDK_TOOL_DIR/$arch/sysroot"
+    fi
+    case ${arch} in
+        "arm") target_host="arm-linux-androideabi" ;;
+        "arm64") target_host="aarch64-linux-android" ;;
+        "x86") target_host="i686-linux-android" ;;
+        "x86_64") target_host="x86_64-linux-android" ;;
+    esac
+    if [ ! -e "$NDK_TOOL_DIR/$arch/$target_host" ]; then
+        if [ -d "$TOOLCHAINS_PATH/$target_host" ]; then
+            ln -sf "$TOOLCHAINS_PATH/$target_host" "$NDK_TOOL_DIR/$arch/$target_host"
+        else
+            ln -sf "$TOOLCHAINS_PATH" "$NDK_TOOL_DIR/$arch/$target_host"
+        fi
     fi
 done

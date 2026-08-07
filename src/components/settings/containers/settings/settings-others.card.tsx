@@ -51,22 +51,20 @@ const SettingsOthersCard:React.FC<SettingsCardProps<ISettings>> = ({
           <View flex marginB-5>
             <Text text75 $textDefault flex column row>Donate Level</Text>
             <Text text100 $textDefault row>
-              Donate level percentage, min 1% (1 minute in 100 minutes)
+              Donations are disabled (fixed at 0%)
             </Text>
           </View>
           <View row flex centerV>
             <Slider
               containerStyle={{ flex: 1 }}
-              minimumValue={1}
+              minimumValue={0}
               maximumValue={100}
               step={1}
-              value={settings.donation}
-              onValueChange={
-              (value) => debouncedUpdate({ donation: value })
-            }
+              value={0}
+              disabled
             />
             <Text marginL-10>
-              {settings.donation}
+              0
               %
             </Text>
           </View>

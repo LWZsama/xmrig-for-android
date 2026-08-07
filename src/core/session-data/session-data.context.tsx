@@ -60,15 +60,15 @@ export const SessionDataContextProvider:React.FC = ({ children }) => {
     [isWorking],
   );
 
-  const pauseMiner = () => XMRigForAndroid?.pauseMiner();
-  const resumeMiner = () => XMRigForAndroid?.resumeMiner();
+  const pauseMiner = React.useCallback(() => XMRigForAndroid?.pauseMiner(), []);
+  const resumeMiner = React.useCallback(() => XMRigForAndroid?.resumeMiner(), []);
 
   React.useEffect(() => {
-    hashrateHistory.add(parseFloat(`${minerData?.hashrate.total[0]}`) || 0);
-    hashrateHistory10s.add(parseFloat(`${minerData?.hashrate.total[0]}`) || 0);
-    hashrateHistory60s.add(parseFloat(`${minerData?.hashrate.total[1]}`) || 0);
-    hashrateHistory15m.add(parseFloat(`${minerData?.hashrate.total[2]}`) || 0);
-    hashrateHistoryMax.add(parseFloat(`${minerData?.hashrate.highest}`) || 0);
+    hashrateHistory.add(parseFloat(`${minerData?.hashrate?.total?.[0]}`) || 0);
+    hashrateHistory10s.add(parseFloat(`${minerData?.hashrate?.total?.[0]}`) || 0);
+    hashrateHistory60s.add(parseFloat(`${minerData?.hashrate?.total?.[1]}`) || 0);
+    hashrateHistory15m.add(parseFloat(`${minerData?.hashrate?.total?.[2]}`) || 0);
+    hashrateHistoryMax.add(parseFloat(`${minerData?.hashrate?.highest}`) || 0);
   }, [minerData]);
 
   React.useEffect(() => {
@@ -90,19 +90,18 @@ export const SessionDataContextProvider:React.FC = ({ children }) => {
     const MinerEmitter = new NativeEventEmitter(XMRigForAndroid);
 
     const onLogSub:EmitterSubscription = MinerEmitter.addListener('onLog', (data:IXMRigLogEvent) => {
-      const cleanData = [...data.log.filter((item) => !filterLogLineRegex.test(item))];
+      const cleanData = [...(Array.isArray(data?.log) ? data.log : [])]
+        .filter((item) => !filterLogLineRegex.test(item));
       cleanData.forEach((itemLog) => log(itemLog.replace(cleanAnsiLogLineRegex, '$2').toString()));
     });
 
     const onConfigUpdateSub:EmitterSubscription = MinerEmitter.addListener('onConfigUpdate', (data) => {
-      console.log('onConfigUpdate', data.config);
       const cConfig:Configuration | undefined = settings.configurations.find(
         (config) => config.id === settings.selectedConfiguration,
       );
       if (cConfig && cConfig.mode === ConfigurationMode.SIMPLE) {
         try {
           const parsedConfig = JSON.parse(data.config);
-          console.log('parsedConfig', parsedConfig);
           settingsDispatcher({
             type: SettingsActionType.UPDATE_CONFIGURATION,
             value: {
@@ -114,7 +113,7 @@ export const SessionDataContextProvider:React.FC = ({ children }) => {
             },
           });
         } catch (e) {
-          console.log('ERROR PARSE ALGO PERF', e);
+          console.error('ERROR PARSE ALGO PERF', e);
         }
       }
       if (cConfig && cConfig.mode === ConfigurationMode.ADVANCE) {
@@ -196,26 +195,38 @@ export const SessionDataContextProvider:React.FC = ({ children }) => {
     }
   }, [cpuTemperature]);
 
+  const sessionData = React.useMemo(() => ({
+    working,
+    workingState,
+    minerData,
+    hashrateTotals: {
+      historyCurrent: hashrateHistory.history,
+      history10s: hashrateHistory10s.history,
+      history60s: hashrateHistory60s.history,
+      history15m: hashrateHistory15m.history,
+      historyMax: hashrateHistoryMax.history,
+    },
+    minerActions: {
+      pause: pauseMiner,
+      resume: resumeMiner,
+    },
+    CPUTemp: cpuTemperature,
+  }), [
+    working,
+    workingState,
+    minerData,
+    hashrateHistory.history,
+    hashrateHistory10s.history,
+    hashrateHistory60s.history,
+    hashrateHistory15m.history,
+    hashrateHistoryMax.history,
+    pauseMiner,
+    resumeMiner,
+    cpuTemperature,
+  ]);
+
   return (
-    // eslint-disable-next-line react/jsx-no-constructed-context-values
-    <SessionDataContext.Provider value={{
-      working,
-      workingState,
-      minerData,
-      hashrateTotals: {
-        historyCurrent: hashrateHistory.history,
-        history10s: hashrateHistory10s.history,
-        history60s: hashrateHistory60s.history,
-        history15m: hashrateHistory15m.history,
-        historyMax: hashrateHistoryMax.history,
-      },
-      minerActions: {
-        pause: pauseMiner,
-        resume: resumeMiner,
-      },
-      CPUTemp: cpuTemperature,
-    }}
-    >
+    <SessionDataContext.Provider value={sessionData}>
       {children}
     </SessionDataContext.Provider>
   );

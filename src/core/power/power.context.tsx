@@ -22,7 +22,6 @@ export const PowerContextProvider:React.FC = ({ children }) => {
     const MinerEmitter = new NativeEventEmitter(XMRigForAndroid);
 
     const onPowerEventSub:EmitterSubscription = MinerEmitter.addListener('onPower', (event: PowerEvent) => {
-      console.log(event);
       switch (event.action) {
         case PowerEventAction.BATTERY_CHANGED:
           if (event.value) {

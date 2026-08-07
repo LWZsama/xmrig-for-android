@@ -15,17 +15,20 @@ export const SettingsReducer:Reducer<ISettings, ISettingsReducerAction> = (
   prevState: ISettings,
   action: ISettingsReducerAction,
 ) => {
-  console.log('reducer', action);
   switch (action.type) {
     case SettingsActionType.SET:
       return {
         ...action.value as ISettings,
+        donation: 0,
       } as ISettings;
     case SettingsActionType.UPDATE:
-      return merge(
-        prevState,
-        action.value,
-      );
+      return {
+        ...merge(
+          prevState,
+          action.value,
+        ),
+        donation: 0,
+      } as ISettings;
     case SettingsActionType.ADD_CONFIGURATION:
       // eslint-disable-next-line no-case-declarations
       const newConfig = (action.value as Configuration).mode === ConfigurationMode.SIMPLE

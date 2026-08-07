@@ -14,9 +14,10 @@ public class ProcessExitDetector extends Thread {
     }
 
     /** The process for which we have to detect the end. */
-    private Process process;
+    private final Process process;
     /** The associated listeners to be invoked at the end of the process. */
-    private List<ProcessListener> listeners = new ArrayList<ProcessListener>();
+    private final List<ProcessListener> listeners = new ArrayList<ProcessListener>();
+    private volatile boolean cancelled;
 
     /**
      * Starts the detection for the given process
@@ -41,25 +42,45 @@ public class ProcessExitDetector extends Thread {
         try {
             // wait for the process to finish
             process.waitFor();
+            if (cancelled) {
+                return;
+            }
             // invokes the listeners
-            for (ProcessListener listener : listeners) {
+            List<ProcessListener> listenersSnapshot;
+            synchronized (listeners) {
+                listenersSnapshot = new ArrayList<>(listeners);
+            }
+            for (ProcessListener listener : listenersSnapshot) {
+                if (cancelled) {
+                    return;
+                }
                 listener.processFinished(process);
             }
         } catch (InterruptedException e) {
         }
     }
 
+    /** Stops waiting and prevents listeners from being invoked. */
+    public void cancel() {
+        cancelled = true;
+        interrupt();
+    }
+
     /** Adds a process listener.
      * @param listener the listener to be added
      */
     public void addProcessListener(ProcessListener listener) {
-        listeners.add(listener);
+        synchronized (listeners) {
+            listeners.add(listener);
+        }
     }
 
     /** Removes a process listener.
      * @param listener the listener to be removed
      */
     public void removeProcessListener(ProcessListener listener) {
-        listeners.remove(listener);
+        synchronized (listeners) {
+            listeners.remove(listener);
+        }
     }
 }

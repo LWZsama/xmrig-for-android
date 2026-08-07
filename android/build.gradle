@@ -2,34 +2,39 @@
 
 buildscript {
     ext {
-        buildToolsVersion = "31.0.0"
+        // API 34 removes Play Protect's "built for an older Android" warning on
+        // current Android releases while keeping the existing RN 0.68 toolchain.
+        buildToolsVersion = "34.0.0"
         minSdkVersion = 29
-        compileSdkVersion = 31
-        targetSdkVersion = 31
+        compileSdkVersion = 34
+        targetSdkVersion = 34
         ndkVersion = "21.4.7075529"
-        kotlinVersion = '1.5.0'
+        kotlinVersion = '1.5.31'
     }
     repositories {
         google()
-        jcenter()
         mavenCentral()
     }
     dependencies {
         classpath('com.android.tools.build:gradle:7.0.4')
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.31")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("de.undercouch:gradle-download-task:4.1.2")
         classpath("org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion")
     }
 }
 
 allprojects {
+    configurations.all {
+        resolutionStrategy.dependencySubstitution {
+            substitute module('com.eightbitlab:blurview') using module('com.github.Dimezis:BlurView:version-1.6.6')
+        }
+    }
     gradle.projectsEvaluated {
         tasks.withType(JavaCompile) {
             options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
         }
     }
     repositories {
-        mavenLocal()
         maven {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
             url("$rootDir/../node_modules/react-native/android")
@@ -39,14 +44,11 @@ allprojects {
             url("$rootDir/../node_modules/jsc-android/dist")
         }
         mavenCentral {
-            // We don't want to fetch react-native from Maven Central as there are
-            // older versions over there.
             content {
                 excludeGroup "com.facebook.react"
             }
         }
-        jcenter()
         google()
-        maven { url 'https://www.jitpack.io' }
+        maven { url 'https://jitpack.io' }
     }
 }

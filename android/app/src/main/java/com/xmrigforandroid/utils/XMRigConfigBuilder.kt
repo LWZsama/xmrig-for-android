@@ -67,8 +67,11 @@ class XMRigConfigBuilder(val context: Context) {
     }
 
     fun setConfiguration(data: Configuration) {
-        val configByte = Base64.decode(data.config, Base64.DEFAULT)
-        config = String(configByte, Charset.defaultCharset())
+        val encodedConfig = data.config?.trim()
+        require(!encodedConfig.isNullOrEmpty()) { "XMRig configuration is empty" }
+        val configByte = Base64.decode(encodedConfig, Base64.DEFAULT)
+        config = String(configByte, Charsets.UTF_8)
+        require(config.isNotBlank()) { "Decoded XMRig configuration is empty" }
     }
 
     fun getConfigString(): String {

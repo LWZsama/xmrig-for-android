@@ -40,16 +40,6 @@ const AddConfigurationsModal:React.FC<AddConfigurationsModalProps> = (
     mode: configMode,
   }).error == null, [name, configMode]);
 
-  const RenderRadioGroup = React.useCallback(() => (
-    <RadioGroup
-      onValueChange={(value: ConfigurationMode) => setConfigMode(value)}
-      initialValue={configMode}
-    >
-      <RadioButton label="Simple Mode" value={ConfigurationMode.SIMPLE} marginB-10 />
-      <RadioButton label="Advanced Mode" value={ConfigurationMode.ADVANCE} />
-    </RadioGroup>
-  ), [configMode]);
-
   return (
     // eslint-disable-next-line react/jsx-props-no-spreading
     <Incubator.Dialog

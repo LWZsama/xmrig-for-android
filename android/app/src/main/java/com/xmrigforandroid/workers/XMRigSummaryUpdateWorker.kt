@@ -5,15 +5,11 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.xmrigforandroid.events.MinerSummaryEvent
-import com.xmrigforandroid.events.ThermalEvent
-import com.xmrigforandroid.services.XMRigAPIService
-import com.xmrigforandroid.utils.CPUTemperatureHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.greenrobot.eventbus.EventBus
-import java.io.IOException
 
 class XMRigSummaryUpdateWorker(appContext: Context, workerParams: WorkerParameters):
         CoroutineWorker(appContext, workerParams) {
@@ -29,13 +25,23 @@ class XMRigSummaryUpdateWorker(appContext: Context, workerParams: WorkerParamete
                     .addHeader("Authorization", "Bearer XMRigForAndroid")
                     .build()
 
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Result.failure()
-                    throw IOException("Unexpected code $response")
+            try {
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        Log.e(XMRigSummaryUpdateWorker.LOG_TAG, "Unexpected HTTP status: ${response.code}")
+                        return@withContext Result.failure()
+                    }
+                    val body = response.body?.string()
+                    if (body.isNullOrBlank()) {
+                        Log.e(XMRigSummaryUpdateWorker.LOG_TAG, "XMRig returned an empty summary")
+                        return@withContext Result.failure()
+                    }
+                    EventBus.getDefault().post(MinerSummaryEvent(body))
+                    return@withContext Result.success()
                 }
-                EventBus.getDefault().post(MinerSummaryEvent(response.body!!.string()))
-                Result.success()
+            } catch (exception: Exception) {
+                Log.e(XMRigSummaryUpdateWorker.LOG_TAG, "Could not update miner summary", exception)
+                return@withContext Result.failure()
             }
         }
     }

@@ -1,4 +1,6 @@
-all: toolchain libuv hwloc openssl xmrig xmrig-mo install
+.PHONY: all toolchain libuv libuv_dl openssl openssl_dl xmrig xmrig_dl xmrig-mo xmrig-mo_dl hwloc hwloc_dl install clean
+
+all: toolchain libuv openssl xmrig xmrig-mo install
 
 toolchain:
 	script/toolchain-build.sh
@@ -38,4 +40,3 @@ install:
 
 clean:
 	script/clean.sh
-
