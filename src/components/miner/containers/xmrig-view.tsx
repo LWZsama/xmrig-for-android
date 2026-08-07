@@ -270,7 +270,14 @@ const XMRigViewComponent:React.FC<XMRigViewProps> = ({
       numColumns={4}
       viewWidth={dimensions.width}
     />
-  ), [hashrateDataAvailable, hashrateHistory.history10s, hashrateHistory.history60s, hashrateHistory.history15m, hashrateHistory.historyMax, dimensions.width]);
+  ), [
+    hashrateDataAvailable,
+    hashrateHistory.history10s,
+    hashrateHistory.history60s,
+    hashrateHistory.history15m,
+    hashrateHistory.historyMax,
+    dimensions.width,
+  ]);
 
   const RenderModeAlgoGrid = React.useCallback(() => (
     <GridView
@@ -357,7 +364,10 @@ class XMRigViewErrorBoundary extends React.Component<
   XMRigViewProps,
   XMRigViewErrorBoundaryState
 > {
-  public state: XMRigViewErrorBoundaryState = { hasError: false };
+  public constructor(props: XMRigViewProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   public static getDerivedStateFromError(): XMRigViewErrorBoundaryState {
     return { hasError: true };
@@ -368,19 +378,34 @@ class XMRigViewErrorBoundary extends React.Component<
   }
 
   public render() {
-    if (this.state.hasError) {
+    const { hasError } = this.state;
+    const { hashrateHistory, minerData, workingState } = this.props;
+
+    if (hasError) {
       return (
         <View flex padding-20>
           <Text text70>Miner statistics are temporarily unavailable.</Text>
         </View>
       );
     }
-    return <XMRigViewComponent {...this.props} />;
+    return (
+      <XMRigViewComponent
+        hashrateHistory={hashrateHistory}
+        minerData={minerData}
+        workingState={workingState}
+      />
+    );
   }
 }
 
 export const XMRigView = React.memo(
-  (props: XMRigViewProps) => <XMRigViewErrorBoundary {...props} />,
+  (props: XMRigViewProps) => (
+    <XMRigViewErrorBoundary
+      hashrateHistory={props.hashrateHistory}
+      minerData={props.minerData}
+      workingState={props.workingState}
+    />
+  ),
   (previous, next) => previous.minerData === next.minerData
     && previous.workingState === next.workingState
     && previous.hashrateHistory.historyCurrent === next.hashrateHistory.historyCurrent

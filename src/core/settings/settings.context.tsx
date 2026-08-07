@@ -95,25 +95,13 @@ export const SettingsContextProvider:React.FC = ({ children }) => {
           donation: 0,
           configurations: value.configurations.map((item) => {
             if (item.mode === ConfigurationMode.SIMPLE) {
-              const simpleConfiguration = merge(
+              return merge(
                 {
                   ...defaultSimpleConfiguration,
                   ...defaultConfiguration,
                 },
                 item,
               );
-              return {
-                ...simpleConfiguration,
-                properties: {
-                  ...simpleConfiguration.properties,
-                  cpu: {
-                    ...simpleConfiguration.properties?.cpu,
-                    yield: false,
-                    priority: 2,
-                    random_x_mode: RandomXMode.AUTO,
-                  },
-                },
-              };
             }
 
             return {

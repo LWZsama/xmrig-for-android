@@ -43,8 +43,10 @@ const EditSimplePoolCardComponent: React.FC<EditSimpleCardProps> = (
   return (
     <>
       <PoolListModal
-        onAdd={(pool: IConfiguratioPropertiesPool) => {
-          setLocalState((oldState) => updateSimpleConfigurationProperties(oldState, { pool }));
+        onAdd={(presetPool: IConfiguratioPropertiesPool) => {
+          setLocalState((oldState) => updateSimpleConfigurationProperties(oldState, {
+            pool: presetPool,
+          }));
         }}
         onDismiss={() => setShowPoolListDialog(false)}
         visible={showPoolListDialog}
@@ -179,9 +181,11 @@ const EditSimplePoolCardComponent: React.FC<EditSimpleCardProps> = (
             <Text text80 $textNeutralLight flex column>SSL</Text>
             <Switch
               value={localState.properties?.pool?.sslEnabled}
-              onValueChange={(value) => setLocalState((oldState) => updateSimpleConfigurationProperties(
-                oldState,
-                { pool: { ...oldState.properties?.pool, sslEnabled: value } },
+              onValueChange={(value) => setLocalState((oldState) => (
+                updateSimpleConfigurationProperties(
+                  oldState,
+                  { pool: { ...oldState.properties?.pool, sslEnabled: value } },
+                )
               ))}
             />
           </View>

@@ -29,7 +29,9 @@ const ConfigurationEditScreen = () => {
   const savedConfiguration = React.useMemo(() => settings.configurations.find(
     (item) => item.id === configurationId,
   ), [settings.configurations, configurationId]);
-  const [configuration, setConfiguration] = React.useState<Configuration | undefined>(savedConfiguration);
+  const [configuration, setConfiguration] = React.useState<Configuration | undefined>(
+    savedConfiguration,
+  );
   React.useEffect(() => {
     setConfiguration(savedConfiguration);
   }, [savedConfiguration]);

@@ -63,6 +63,14 @@ export const MinerCard:React.FC<MinerCardProps> = ({
   </Card>
 );
 
+MinerCard.defaultProps = {
+  title: undefined,
+  subTitle: undefined,
+  disabled: false,
+  cardProps: {},
+  badgeProps: {},
+};
+
 const styles = StyleSheet.create({
   disabledCard: {
     opacity: 0.2,

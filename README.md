@@ -27,7 +27,7 @@
 </p>
 
 > [!NOTE]
-> This repository is a independently maintained continuation of
+> This repository is an independently maintained continuation of
 > [XMRig-for-Android/xmrig-for-android](https://github.com/XMRig-for-Android/xmrig-for-android).
 > The original project has not been actively maintained for a long time, and its bundled
 > XMRig and MoneroOcean XMRig binaries are outdated. This continuation keeps the Android
@@ -41,7 +41,7 @@ an Android UI and foreground service. It makes pool and CPU configuration approa
 new users while still offering an advanced configuration mode for experienced miners.
 
 The app supports both the official XMRig engine and the
-[MoneroOcean XMRig fork](https://github.com/MoneroOcean/xmrig). For miner configuration concepts 
+[MoneroOcean XMRig fork](https://github.com/MoneroOcean/xmrig). For miner configuration concepts
 and command-line behavior, see the [XMRig documentation](https://xmrig.com/docs/miner).
 
 ## Performance improvements
