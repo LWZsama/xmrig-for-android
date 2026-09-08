@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/env.sh"
 mkdir -p "$EXTERNAL_LIBS_BUILD_ROOT"
 cd "$EXTERNAL_LIBS_BUILD_ROOT"
 
-version="v6.26.0-mo4"
+version="v6.26.0-mo5"
 REPOSITORY="$EXTERNAL_LIBS_BUILD_ROOT/xmrig-mo"
 PATCH_FILE="$SCRIPT_DIR/../xmrig-mo.patch"
 
